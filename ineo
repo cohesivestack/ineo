@@ -1,0 +1,663 @@
+#!/bin/bash
+# ineo 0.1.0 - Neo4j Instances Manager
+# Copyright (C) 2015 Carlos Forero
+#
+# http://github.com/carlosforero/ineo
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+VERSION=0.1.0
+
+DEFAULT_HOME="$HOME/.ineo"
+
+DEFAULT_VERSION='2.2.2'
+
+DEFAULT_PORT='7474'
+
+# NEO4J_HOSTNAME can be assigned from the environment, so it can be changed
+# with testing to use tars in tars_for_test folder
+NEO4J_HOSTNAME="${NEO4J_HOSTNAME:-http://dist.neo4j.org}"
+
+NEO4J_VERSIONS='1.9.9\n2.0.4\n2.1.8\n2.2.2\n'
+
+UPDATED_AT='Jun 3, 2015'
+
+LOCK_DIR='/tmp/ineo.neo4j.instances.lock'
+
+TEMP_DIR="/tmp/$$.ineo"
+
+# ==============================================================================
+# SET INSTANCES FUNCTION
+# ==============================================================================
+
+function set_instances {
+  if [ -d ${INEO_HOME}/instances ]; then
+    local instance_name
+    for instance_name in `ls ${INEO_HOME}/instances`; do
+      if [ -d  ${INEO_HOME}/instances/${instance_name} ]; then
+        INSTANCES+=($instance_name)
+      fi
+    done;
+  fi
+}
+
+set_instances
+
+# ==============================================================================
+# LOCK FUNCTION
+# ==============================================================================
+
+if ! mkdir $LOCK_DIR
+then
+  echo "FATAL: Lock failed - exit" >&2
+  exit 1
+fi
+
+if ! mkdir $TEMP_DIR
+then
+  echo "FATAL: Creating then temp dir '$TEMP_DIR' failed - exit" >&2
+  exit 1
+fi
+
+trap "rm -rf $TEMP_DIR; rmdir $LOCK_DIR" EXIT
+
+# ==============================================================================
+# INVALID COMMAND FUNCTION
+# ==============================================================================
+
+function invalid_command_param {
+  local param=$1
+  local command=$2
+  printf "\nERROR: Invalid argument or option: $param!\n\n"
+  printf "To help about the command '$command' type:\n"
+  printf "  ineo help $command\n"
+}
+
+# ==============================================================================
+# LIST INSTANCES FUNCTION
+# ==============================================================================
+
+# function list_instances {
+#   for dir in `ls ${INEO_HOME}/instances`; do
+#     if [-d  ${INEO_HOME}/${dir} ]; then
+#     fi
+#   done;
+# }
+
+# ==============================================================================
+# INSTALL
+# ==============================================================================
+
+function install {
+
+  shift
+  while getopts ":d:" optname
+  do
+    case "${optname}" in
+      d)
+        INEO_HOME=${OPTARG}
+        ;;
+      *)
+        invalid_command_param $OPTARG 'install'
+        exit 1
+        ;;
+    esac
+  done
+
+  local arg1=${@:$OPTIND:1}
+  if [ ! -z "$arg1" ]
+  then
+    invalid_command_param $arg1 'install'
+    exit 1
+  fi
+
+  # Set INEO_HOME variable
+  if [ -z "$INEO_HOME" ]
+  then
+    INEO_HOME=$DEFAULT_HOME
+  fi
+
+  # Check if directory is an absolute directory
+  if [[ ! $INEO_HOME =~ ^/ ]]
+  then
+    printf "\nERROR: The directory '$INEO_HOME' is not an absolute path!\n\n"
+    printf "Use directories like:\n"
+    printf "  /opt/ineo\n"
+    printf "  ~/.ineo\n"
+    exit 1
+  fi
+
+  # Check if directory exists
+  if [ -d "$INEO_HOME" ]
+  then
+    printf "\nERROR: The directory '$INEO_HOME' already exists!\n\n"
+    printf "If you want reinstall ineo then uninstall it with:\n"
+    printf "  ineo uninstall -d $INEO_HOME\n\n"
+    printf "or ensure the directory doesn't contain anything important then remove it with:\n"
+    printf "  rm -r $INEO_HOME\n"
+    exit 1
+  fi
+
+  # Create folders
+  local folders=(bin neo4j instances)
+  for folder in "${folders[@]}"
+  do
+    mkdir "$TEMP_DIR/$folder"
+  done
+
+  # self copy to folder bin of ineo
+  cp $0 ${TEMP_DIR}/bin
+
+  # Create variable
+  local line_for_bashrc="export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME/bin:\$PATH"
+
+  # If not exists a line with the current Ineo home directory then proceeds to
+  # create it
+  if ! grep -Fq "$line_for_bashrc" ~/.bashrc
+  then
+    # Remove any old set variable
+    sed -i.bak '/export INEO_HOME=/d' ~/.bashrc
+
+    # Add the line in .bashrc to export the variable
+    echo "$line_for_bashrc" >> ~/.bashrc
+  fi
+
+  # Move the TEMP_DIR to the target directory for ineo
+  mv ${TEMP_DIR} $INEO_HOME
+
+  printf "\nIneo was successfully installed in $INEO_HOME.\n\n"
+  printf "To start using the 'ineo' command reopen your terminal or enter:\n"
+  printf "  source ~/.bashrc\n"
+  exit 0
+}
+
+# ==============================================================================
+# UNINSTALL
+# ==============================================================================
+
+function uninstall {
+  local forced=false
+
+  shift
+  while getopts ":d:f" optname
+  do
+    case "${optname}" in
+      d)
+        INEO_HOME=${OPTARG}
+        ;;
+      f)
+        forced=true
+        ;;
+      *)
+        invalid_command_param $OPTARG 'uninstall'
+        exit 1
+        ;;
+    esac
+  done
+
+  local arg1=${@:$OPTIND:1}
+  if [ ! -z "$arg1" ]
+  then
+    invalid_command_param $arg1 'uninstall'
+    exit 1
+  fi
+
+  # Check if INEO_HOME variable is set
+  if [ -z "$INEO_HOME" ]
+  then
+    printf "\nERROR: The variable '\$INEO_HOME' is not set!\n\n"
+    printf "Are you sure that Ineo is installed?:\n"
+    exit 1
+  fi
+
+  # Check if the directory is an absolute directory
+  if [[ ! $INEO_HOME =~ ^/ ]]
+  then
+    printf "\nERROR: The directory '$INEO_HOME' is not an absolute path!\n\n"
+    printf "Use directories like:\n"
+    printf "  /opt/ineo\n"
+    printf "  ~/.ineo\n"
+    exit 1
+  fi
+
+  if ! $forced
+  then
+    # Check if the directory exists
+    if [ ! -d "$INEO_HOME" ]; then
+      printf "\nERROR: The directory '$INEO_HOME' doesn't exists!\n\n"
+      printf "Are you sure Ineo is installed?\n"
+      exit 1
+    fi
+
+    # Check if the directory looks like an Ineo directory
+    if [ ! -d "$INEO_HOME/bin" ] || [ ! -d "$INEO_HOME/neo4j" ] || [ ! -d "$INEO_HOME/instances" ]; then
+      printf "\nWARNING: The directory '$INEO_HOME' doesn't look like an Ineo directory!\n\n"
+      read -p "Are you sure this directory is an Ineo directory? (y/n) " -r
+      echo    # (optional) move to a new line
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+      fi
+    fi
+
+    printf "\nWARNING: This action will remove everything in '$INEO_HOME'!\n\n"
+    read -p "Are you sure you want to do this action? (y/n) " -r
+    echo    # (optional) move to a new line
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
+  fi
+
+  # Remove directory
+  rm -r $INEO_HOME
+
+  # Replace the directories separator (/) by (\/), so it can be used with sed
+  INEO_HOME=${INEO_HOME//\//\\\/}
+  # Remove variable in .bashrc
+  sed -i.bak "/export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME\/bin:\$PATH/d" ~/.bashrc
+
+  printf "\nIneo was successfully uninstalled\n"
+  exit 0
+}
+
+# ==============================================================================
+# CREATE
+# ==============================================================================
+
+function create {
+  local port=$DEFAULT_PORT
+  local version=$DEFAULT_VERSION
+  local force_download=false
+  local force_install=false
+
+  shift
+  while getopts ":p:s:v:df" optname
+  do
+    case "${optname}" in
+      p)
+        port=${OPTARG}
+        ;;
+      s)
+        ssl_port=${OPTARG}
+        ;;
+      v)
+        version=${OPTARG}
+        ;;
+      d)
+        force_download=true
+        ;;
+      f)
+        force_install=true
+        ;;
+      *)
+        invalid_command_param $OPTARG 'create'
+        exit 1
+        ;;
+    esac
+  done
+  local instance_name=${@:$OPTIND:1}
+  shift
+
+  local arg2=${@:$OPTIND:1}
+  if [ ! -z "$arg2" ]; then
+    invalid_command_param $arg2 'create'
+    exit 1
+  fi
+
+  local tar_name="neo4j-community-$version-unix.tar.gz"
+
+  # Donwload and create tar if doesn't exists
+  if ! [ -f ${INEO_HOME}/neo4j/${tar_name} ] || $force_download; then
+    curl -o ${TEMP_DIR}/${tar_name} ${NEO4J_HOSTNAME}/${tar_name}
+
+    mv ${TEMP_DIR}/${tar_name} ${INEO_HOME}/neo4j/${tar_name}
+  fi
+
+  # Create tmp dir to extract
+  mkdir -p ${TEMP_DIR}/${version}
+  # if is not extracted then the tar maybe is not good, so a message suggesting
+  # to use -d option is showed
+  if ! tar -xzf ${INEO_HOME}/neo4j/${tar_name} \
+    -C ${TEMP_DIR}/${version} &> /dev/null; then
+    printf "\nERROR: The tar file '${tar_name}' can't be extracted!\n\n"
+    printf "Try run the command 'create' with the -d option to download the tar file again\n"
+    exit 1
+  fi
+
+  # If directory for the instance exists then a message suggesting run or
+  # install with the option -f is showed
+  if [ -d ${INEO_HOME}/instances/${instance_name} ] && ! $force_install ; then
+    printf "\nERROR: A directory for the instance '${instance_name}' already exists!\n\n"
+    printf "Maybe the instance already was created or try run the command 'install' with the -f option to force the installation\n"
+    exit 1
+  fi
+
+  if $force_install ; then
+    rm -rf ${INEO_HOME}/instances/${instance_name}
+  fi
+
+  # Create a hidden file with the version used in this installation
+  echo $version > ${TEMP_DIR}/${version}/neo4j-community-${version}/.version
+
+  # Finnaly move the instance for installing
+  mv ${TEMP_DIR}/${version}/neo4j-community-${version} ${INEO_HOME}/instances/${instance_name}
+
+  # Set the port on the configuration file
+  setport $instance_name $port $ssl_port
+  printf "\nThe instance ${instance_name} was created successfully\n\n"
+}
+
+# ==============================================================================
+# ACTIONS
+# ==============================================================================
+
+function action {
+  local action_name=${@:$OPTIND:1}
+  local quiet=false
+
+  shift
+  while getopts ":q" optname
+  do
+    case "${optname}" in
+      q)
+        quiet=true
+        ;;
+      *)
+        invalid_command_param $OPTARG $action_name
+        exit 1
+        ;;
+    esac
+  done
+
+  local instance_name=${@:$OPTIND:1}
+
+  shift
+  local arg2=${@:$OPTIND:1}
+  if [ ! -z "$arg2" ]; then
+    invalid_command_param $arg2 $action_name
+    exit 1
+  fi
+
+  local instances=()
+
+  # If is not specified the instance name, then apply on all instances
+  if [ -z "$instance_name" ]; then
+    # If no instances then an error messages
+    if [ -z "$INSTANCES" ]; then
+      printf "\nERROR: No instances created!\n\n"
+      printf "Try create an instance with the command 'ineo create [your_instance_name]'\n"
+    fi
+
+    # Confirmation for critical actions
+    if [[ $action_name == 'start' || $action_name == 'stop' || $action_name == 'restart' ]] && [ "$quiet" == false ]; then
+      printf "\nWARNING: A Neo4j instance name is not specified!\n\n"
+      read -p "Are you sure you want to ${action_name} all instances? (y/n) " -r
+      echo    # (optional) move to a new line
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+      fi
+    fi
+    instances=("${INSTANCES[@]}")
+  else
+    if [ ! -d ${INEO_HOME}/instances/${instance_name} ]; then
+      printf "\nERROR: There is not an instance with the name '${instance_name}'!\n\n"
+      printf "You can create an instance with the command 'ineo create ${instance_name}'\n"
+      exit 1
+    fi
+    instances[0]=$instance_name
+  fi
+
+  for instance_name in "${instances[@]}"; do
+    if [ ! -f ${INEO_HOME}/instances/${instance_name}/bin/neo4j ]; then
+      printf "\nERROR: The instance '${instance_name}' seems that is not properly installed!\n\n"
+      printf "You can recreate the instance with the command 'ineo create -f ${instance_name}'\n"
+      exit 1
+    fi
+
+    printf "\n> ${action_name} '${instance_name}'\n  "
+
+    ${INEO_HOME}/instances/${instance_name}/bin/neo4j $action_name
+
+    printf "\n"
+  done
+}
+
+# ==============================================================================
+# DESTROY
+# ==============================================================================
+
+function destroy {
+  instance_name=$1
+
+  action 'stop' $instance_name
+  rm -r ${INEO_HOME}/instances/${instance_name}
+}
+
+# ==============================================================================
+# INSTANCES
+# ==============================================================================
+
+function instances {
+  i=0
+  for instance_name in "${INSTANCES[@]}"; do
+    version=$(head -n 1 $INEO_HOME/instances/$instance_name/.version)
+    port=$(sed -n '/^org\.neo4j\.server\.webserver\.port=\(.*\)$/s//\1/p' \
+      $INEO_HOME/instances/$instance_name/conf/neo4j-server.properties)
+
+    printf "\n> instance '$instance_name'\n"
+    printf "  VERSION: ${version}\n"
+    printf "  PATH:    ${INEO_HOME}/instances/${instance_name}\n"
+    printf "  PORT:    ${port}\n"
+  done
+}
+
+# ==============================================================================
+# SET-PORT
+# ==============================================================================
+
+function setport {
+  instance_name=$1
+  http_port=$2
+  https_port=${3:-$((http_port + 1))}
+
+  sed -i.bak "/^\(org\.neo4j\.server\.webserver\.port=\).*/s//\1$http_port/" \
+    ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+
+  sed -i.bak "/^\(org\.neo4j\.server\.webserver\.https\.port=\).*/s//\1$https_port/" \
+    ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+}
+
+
+# ==============================================================================
+# VERSIONS
+# ==============================================================================
+
+function versions {
+  printf "\nThe Neo4J versions available at $UPDATED_AT:\n"
+  printf $NEO4J_VERSIONS
+  printf "\nMore information about Neo4j releases in: http://neo4j.com/download/other-releases\n"
+}
+
+# ==============================================================================
+# HELP
+# ==============================================================================
+
+function help {
+  if [ -z "$1" ]
+  then
+    printf "$HELP"
+  else
+    command=$(echo "help_$1" | tr '[:lower:]' '[:upper:]')
+    printf "${!command}"
+  fi
+}
+
+# ==============================================================================
+# HELPS
+# ==============================================================================
+
+HELP="USAGE:
+  ineo <command> [options] [<arguments>]
+
+COMMANDS:
+
+  create      Create a new instance with a specific <name>
+  destroy     Remove a specific instance <name>
+  versions    Show the versions available to install
+  instances   Show the information about the instances installed
+
+  start       Start neo4j instances
+  stop        Stop neo4j instances
+  restart     Restart neo4j instances
+  status      Show instances status
+
+  clear-data  Delete all data of a specific instance
+  set-port    Change the port of a specific instance
+
+  install     Install ineo
+  update      Update ineo
+  uninstall   Uninstall ineo
+
+  help        Show this help or help for specific [command]
+"
+
+HELP_CREATE="USAGE:
+  create [options] <instance_name>
+
+DESCRIPTION:
+  Create a new instance
+
+ARGUMENTS:
+  <instance_name>  Instance name to create
+
+OPTIONS:
+   -p <port>     Http server port for the neo4j instance.
+                 Default: 7474
+   -s <port>     Https server port (SSL port) for the neo4j instance.
+                 Default: <port>+1 (7475 when port is 7474)
+   -v <version>  The neo4j version for the instance
+                 Default: 2.2.2
+"
+
+HELP_START="USAGE:
+  start [options]
+
+DESCRIPTION:
+  Start neo4j instances
+
+OPTIONS:
+   [instance_names ...]  Name of one or more instances to start
+   -f                    Force to start all instances without confirmation
+"
+
+HELP_STOP="USAGE:
+  stop [options]
+
+DESCRIPTION:
+  Stop neo4j instances
+
+OPTIONS:
+  [instance_names ...]  Name of one or more instances to stop
+  -f                    Force to stop all instances without confirmation
+"
+
+HELP_RESTART="USAGE:
+  restart [options]
+
+DESCRIPTION:
+  Restart neo4j instances
+
+OPTIONS:
+  [instance_names ...]  Name of one or more instances to restart
+  -f                    Force to restart all instances without confirmation
+"
+
+HELP_STATUS="USAGE:
+  status [options]
+
+DESCRIPTION:
+  Show instances status
+
+OPTIONS:
+  [instance name ...]  Name of one or more instances to show status
+"
+
+HELP_INSTALL="USAGE:
+  install [options]
+
+DESCRIPTION:
+  Install ineo
+
+OPTIONS:
+  -d <directory_name>  Directory name where ineo will be installed
+                       Default: (~/.ineo)
+"
+
+HELP_UNINSTALL="USAGE:
+  uninstall [options]
+
+DESCRIPTION:
+  Uninstall ineo
+
+OPTIONS:
+  -d <directory_name>  Directory name where ineo is installed
+                       The default value is the value of the variable \$INEO_HOME
+                       if it is configured
+  -f                   Try to uninstall without prompting for confirmation
+"
+
+# ==============================================================================
+# COMMAND SELECTOR
+# ==============================================================================
+
+COMMAND=$1
+
+case $COMMAND in
+  install)
+    install $@
+    ;;
+  uninstall)
+    uninstall $@
+    ;;
+  create)
+    create $@
+    ;;
+  destroy)
+    destroy $@
+    ;;
+  console|start|start-no-wait|stop|restart|status|info)
+    action $@
+    ;;
+  set-port)
+    setport $2 $3
+    ;;
+  versions)
+    versions
+    ;;
+  instances)
+    instances
+    ;;
+  help)
+    help $2
+    ;;
+  *)
+    help
+    ;;
+esac
+
+exit 0
