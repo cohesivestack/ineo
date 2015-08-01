@@ -790,3 +790,59 @@ assert "./ineo status" \
 "
 
 assert_end Execute actions on various instances correctly
+
+# ==============================================================================
+# TEST INSTANCES
+# ==============================================================================
+
+# Instances with incorrect parameters
+# ------------------------------------------------------------------------------
+setup
+
+params=(
+  'wrong'
+  '-q'
+)
+
+for ((i=0; i<${#params[*]}; i+=1))
+do
+  assert_raises "./ineo instances ${params[i]}" 1
+  assert        "./ineo instances ${params[i]}" \
+"
+ERROR: Invalid argument or option: ${params[i]}!
+
+To help about the command 'instances' type:
+  ineo help instances
+"
+done
+
+assert_end Instances with incorrect parameters
+
+# Instances correctly
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+# Test confirming
+assert_raises "./ineo create -p7474 -s8484 twitter" 0
+assert_raises "./ineo create -p7575 -s8585 facebook" 0
+
+assert_raises "./ineo instances" 0
+assert        "./ineo instances" \
+"
+> instance 'facebook'
+  VERSION: 2.2.2
+  PATH:    /Users/carlosforero/shell/ineo/ineo_for_test/instances/facebook
+  PORT:    7575
+  HTTPS:   8585
+
+> instance 'twitter'
+  VERSION: 2.2.2
+  PATH:    /Users/carlosforero/shell/ineo/ineo_for_test/instances/twitter
+  PORT:    7474
+  HTTPS:   8484
+"
+
+assert_end Instances correctly

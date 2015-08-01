@@ -453,16 +453,24 @@ function destroy {
 # ==============================================================================
 
 function instances {
-  i=0
+  if [ ! -z $2 ]
+  then
+    invalid_command_param $2 'instances'
+    exit 1
+  fi
+
   for instance_name in "${INSTANCES[@]}"; do
     version=$(head -n 1 $INEO_HOME/instances/$instance_name/.version)
     port=$(sed -n '/^org\.neo4j\.server\.webserver\.port=\(.*\)$/s//\1/p' \
+      $INEO_HOME/instances/$instance_name/conf/neo4j-server.properties)
+    ssl=$(sed -n '/^org\.neo4j\.server\.webserver\.https.port=\(.*\)$/s//\1/p' \
       $INEO_HOME/instances/$instance_name/conf/neo4j-server.properties)
 
     printf "\n> instance '$instance_name'\n"
     printf "  VERSION: ${version}\n"
     printf "  PATH:    ${INEO_HOME}/instances/${instance_name}\n"
     printf "  PORT:    ${port}\n"
+    printf "  HTTPS:   ${ssl}\n"
   done
 }
 
@@ -650,7 +658,7 @@ case $COMMAND in
     versions
     ;;
   instances)
-    instances
+    instances $@
     ;;
   help)
     help $2
