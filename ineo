@@ -442,10 +442,69 @@ function action {
 # ==============================================================================
 
 function destroy {
-  instance_name=$1
+  local force=false
 
-  action 'stop' $instance_name
-  rm -r ${INEO_HOME}/instances/${instance_name}
+  shift
+  while getopts ":f" optname
+  do
+    case "${optname}" in
+      f)
+        force=true
+        ;;
+      *)
+        invalid_command_param $OPTARG 'destroy'
+        exit 1
+        ;;
+    esac
+  done
+
+  local instance_name=${@:$OPTIND:1}
+
+  shift
+  local arg2=${@:$OPTIND:1}
+  if [ ! -z "$arg2" ]; then
+    invalid_command_param $arg2 'destroy'
+    exit 1
+  fi
+
+  # Check if the directory exists
+  if [ ! -d "$INEO_HOME/instances/${instance_name}" ]; then
+    printf "\nERROR: There is not an instance with the name '${instance_name}'!\n\n"
+    printf "Use 'ineo instances' to list the instances installed\n"
+    exit 1
+  fi
+
+  # Confirm destroy
+  if [[ "$force" == false ]]; then
+    printf "\nWARNING: Destroying the instance '${instance_name}' will remove all data for this instance!\n\n"
+    read -p "Are you sure you want to destroy the '${instance_name}'? (y/n) " -r
+    echo    # (optional) move to a new line
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
+  fi
+
+  # Check if the instance is running
+  if [ -f "$INEO_HOME/instances/${instance_name}/data/neo4j-service.pid" ]; then
+
+    if [[ "$force" == false ]]; then
+      printf "\nWARNING: The instance '${instance_name}' is running!\n\n"
+      read -p "Are you sure you want to stop '${instance_name}' and destroy? (y/n) " -r
+      echo    # (optional) move to a new line
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+      fi
+    fi
+
+    # Stop the instance
+    ${INEO_HOME}/instances/${instance_name}/bin/neo4j stop
+  fi
+
+  rm -fr ${INEO_HOME}/instances/${instance_name}
+
+  printf "\nThe instance '${instance_name}' was successfully destroyed.\n\n"
+  exit 0
+
 }
 
 # ==============================================================================

@@ -893,3 +893,112 @@ More information about Neo4j releases in: http://neo4j.com/download/other-releas
 
 "
 assert_end Versions correctly
+
+# ==============================================================================
+# TEST DESTROY
+# ==============================================================================
+
+# Destroy with incorrect parameters
+# ------------------------------------------------------------------------------
+setup
+
+params=(
+  "-x" 'x'
+  "-x -y" 'x'
+  "-x twitter" 'x'
+  "facebook twitter" 'twitter'
+  "-x facebook twitter" 'x'
+)
+
+for ((i=0; i<${#params[*]}; i+=2)); do
+  assert_raises "./ineo destroy ${params[i]}" 1
+  assert        "./ineo destroy ${params[i]}" \
+"
+ERROR: Invalid argument or option: ${params[i+1]}!
+
+To help about the command 'destroy' type:
+  ineo help destroy
+"
+done
+
+assert_end Destroy with incorrect parameters
+
+# Destroy a non-existent instance
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo destroy twitter" 1
+assert        "./ineo destroy twitter" \
+"
+ERROR: There is not an instance with the name 'twitter'!
+
+Use 'ineo instances' to list the instances installed
+"
+
+assert_end Destroy a non-existent instance
+
+# Destroy correctly
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+# Test confirming without an instance running
+
+assert_raises "./ineo create twitter" 0
+
+assert_raises "echo -ne 'y\n' | ./ineo destroy twitter" 0
+
+assert_raises "./ineo create twitter" 0
+assert "echo -ne 'y\n' | ./ineo destroy twitter" \
+"
+WARNING: Destroying the instance 'twitter' will remove all data for this instance!
+
+
+
+The instance 'twitter' was successfully destroyed.
+
+"
+
+# Test confirming with an instance running
+
+assert_raises "./ineo create twitter" 0
+assert_raises "./ineo start twitter" 0
+
+pid=$(get_instance_pid twitter)
+assert_run_pid $pid
+
+assert_raises "echo -ne 'y\ny\n' | ./ineo destroy twitter" 0
+
+assert_not_run_pid $pid
+
+# Test forcing without an instance running
+
+assert_raises "./ineo create twitter" 0
+
+assert_raises "./ineo destroy -f twitter" 0
+
+assert_raises "./ineo create twitter" 0
+assert "./ineo destroy -f twitter" \
+"
+The instance 'twitter' was successfully destroyed.
+
+"
+
+# Test forcing with an instance running
+
+assert_raises "./ineo create twitter" 0
+assert_raises "./ineo start twitter" 0
+
+pid=$(get_instance_pid twitter)
+assert_run_pid $pid
+
+assert_raises "./ineo destroy -f twitter" 0
+
+assert_not_run_pid $pid
+
+assert_end Destroy correctly
