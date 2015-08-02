@@ -825,7 +825,6 @@ setup
 # Make an installation
 assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-# Test confirming
 assert_raises "./ineo create -p7474 -s8484 twitter" 0
 assert_raises "./ineo create -p7575 -s8585 facebook" 0
 
@@ -846,3 +845,51 @@ assert        "./ineo instances" \
 "
 
 assert_end Instances correctly
+
+# ==============================================================================
+# TEST VERSIONS
+# ==============================================================================
+
+# Versions with incorrect parameters
+# ------------------------------------------------------------------------------
+setup
+
+params=(
+  'wrong'
+  '-q'
+)
+
+for ((i=0; i<${#params[*]}; i+=1))
+do
+  assert_raises "./ineo versions ${params[i]}" 1
+  assert        "./ineo versions ${params[i]}" \
+"
+ERROR: Invalid argument or option: ${params[i]}!
+
+To help about the command 'versions' type:
+  ineo help versions
+"
+done
+
+assert_end Versions with incorrect parameters
+
+# Versions correctly
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo versions" 0
+assert        "./ineo versions" \
+"
+The Neo4J versions available at Jun 3, 2015:
+1.9.9
+2.0.4
+2.1.8
+2.2.2
+
+More information about Neo4j releases in: http://neo4j.com/download/other-releases
+
+"
+assert_end Versions correctly

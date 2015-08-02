@@ -496,6 +496,12 @@ function setport {
 # ==============================================================================
 
 function versions {
+  if [ ! -z $2 ]
+  then
+    invalid_command_param $2 'versions'
+    exit 1
+  fi
+
   printf "\nThe Neo4J versions available at $UPDATED_AT:\n"
   printf $NEO4J_VERSIONS
   printf "\nMore information about Neo4j releases in: http://neo4j.com/download/other-releases\n"
@@ -652,10 +658,10 @@ case $COMMAND in
     action $@
     ;;
   set-port)
-    setport $2 $3
+    setport $@
     ;;
   versions)
-    versions
+    versions $@
     ;;
   instances)
     instances $@
