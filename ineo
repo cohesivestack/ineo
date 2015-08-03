@@ -90,17 +90,6 @@ function invalid_command_param {
 }
 
 # ==============================================================================
-# LIST INSTANCES FUNCTION
-# ==============================================================================
-
-# function list_instances {
-#   for dir in `ls ${INEO_HOME}/instances`; do
-#     if [-d  ${INEO_HOME}/${dir} ]; then
-#     fi
-#   done;
-# }
-
-# ==============================================================================
 # INSTALL
 # ==============================================================================
 
@@ -293,7 +282,7 @@ function create {
         port=${OPTARG}
         ;;
       s)
-        ssl_port=${OPTARG}
+        https_port=${OPTARG}
         ;;
       v)
         version=${OPTARG}
@@ -311,8 +300,17 @@ function create {
     esac
   done
   local instance_name=${@:$OPTIND:1}
-  shift
 
+  # The action create always requires an instance name
+  if [[ -z "$instance_name" ]]; then
+    printf "\nERROR: create requires an instance name!\n\n"
+    printf "To help about the command 'create' type:\n"
+    printf "  ineo help create\n"
+    exit 1
+  fi
+
+
+  shift
   local arg2=${@:$OPTIND:1}
   if [ ! -z "$arg2" ]; then
     invalid_command_param $arg2 'create'
@@ -358,7 +356,9 @@ function create {
   mv ${TEMP_DIR}/${version}/neo4j-community-${version} ${INEO_HOME}/instances/${instance_name}
 
   # Set the port on the configuration file
-  setport $instance_name $port $ssl_port
+  https_port=${https_port:-$((${port} + 1))}
+  set_port $instance_name $port
+  set_https_port $instance_name $https_port
   printf "\nThe instance ${instance_name} was created successfully\n\n"
 }
 
@@ -537,16 +537,88 @@ function instances {
 # SET-PORT
 # ==============================================================================
 
-function setport {
-  instance_name=$1
-  http_port=$2
-  https_port=${3:-$((http_port + 1))}
-
-  sed -i.bak "/^\(org\.neo4j\.server\.webserver\.port=\).*/s//\1$http_port/" \
+function set_port {
+  local instance_name=$1
+  local port=$2
+  sed -i.bak "/^\(org\.neo4j\.server\.webserver\.port=\).*/s//\1$port/" \
     ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+}
 
-  sed -i.bak "/^\(org\.neo4j\.server\.webserver\.https\.port=\).*/s//\1$https_port/" \
+function set_https_port {
+  local instance_name=$1
+  local port=$2
+  sed -i.bak "/^\(org\.neo4j\.server\.webserver\.https\.port=\).*/s//\1$port/" \
     ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+}
+
+# Command
+function set-port {
+  local https=false
+
+  shift
+  while getopts ":s" optname
+  do
+    case "${optname}" in
+      s)
+        https=true
+        ;;
+      *)
+        invalid_command_param $OPTARG 'set-port'
+        exit 1
+        ;;
+    esac
+  done
+
+  local instance_name=${@:$OPTIND:1}
+
+  shift
+  local port=${@:$OPTIND:1}
+
+  shift
+  local arg=${@:$OPTIND:1}
+  if [ ! -z "$arg" ]; then
+    invalid_command_param $arg 'set-port'
+    exit 1
+  fi
+
+  if [ -z "$instance_name" ] || [ -z "$port" ]; then
+    printf "\nERROR: set-port requires an instance name and a port number!\n\n"
+    printf "To help about the command 'set-port' type:\n"
+    printf "  ineo help set-port\n"
+    exit 1
+  fi
+
+  if [[ ! $port =~ ^[0-9]+$ ]]; then
+    printf "\nERROR: The port must be a positive integer number!\n\n"
+    printf "To help about the command 'set-port' type:\n"
+    printf "  ineo help create\n"
+    exit 1
+  fi
+
+  if (( port < 1 || port > 65535 )); then
+    printf "\nERROR: The port must be a number between 1 and 65535!\n\n"
+    printf "To help about the command 'set-port' type:\n"
+    printf "  ineo help create\n"
+    exit 1
+  fi
+
+  # Check if the configuration file doesn't exists
+  if [ ! -f "$INEO_HOME/instances/${instance_name}/conf/neo4j-server.properties" ]; then
+    printf "\nERROR: There is not an instance with the name '${instance_name}' or is not properly installed!\n\n"
+    printf "Use 'ineo instances' to list the instances installed\n"
+    exit 1
+  fi
+
+  if [[ "$https" == true ]]; then
+    set_port $instance_name $port
+
+    printf "\nThe https port was successfully changed to '$port'.\n\n"
+  else
+    set_https_port $instance_name $port
+
+    printf "\nThe http port was successfully changed to '$port'.\n\n"
+  fi
+
 }
 
 
@@ -717,7 +789,7 @@ case $COMMAND in
     action $@
     ;;
   set-port)
-    setport $@
+    set-port $@
     ;;
   versions)
     versions $@
