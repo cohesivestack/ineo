@@ -309,7 +309,6 @@ function create {
     exit 1
   fi
 
-
   shift
   local arg2=${@:$OPTIND:1}
   if [ ! -z "$arg2" ]; then
@@ -591,14 +590,14 @@ function set-port {
   if [[ ! $port =~ ^[0-9]+$ ]]; then
     printf "\nERROR: The port must be a positive integer number!\n\n"
     printf "To help about the command 'set-port' type:\n"
-    printf "  ineo help create\n"
+    printf "  ineo help set-port\n"
     exit 1
   fi
 
   if (( port < 1 || port > 65535 )); then
     printf "\nERROR: The port must be a number between 1 and 65535!\n\n"
     printf "To help about the command 'set-port' type:\n"
-    printf "  ineo help create\n"
+    printf "  ineo help set-port\n"
     exit 1
   fi
 

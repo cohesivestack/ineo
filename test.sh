@@ -364,6 +364,24 @@ assert_end Uninstall with a directory that doesnt looks like an Ineo directory u
 # TEST CREATE
 # ==============================================================================
 
+# Create an instance without the required parameter
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo create" 1
+assert "./ineo create" \
+"
+ERROR: create requires an instance name!
+
+To help about the command 'create' type:
+  ineo help create
+"
+
+assert_end Create an instance without the required parameter
+
 # Create with incorrect parameters
 # ------------------------------------------------------------------------------
 setup
@@ -545,6 +563,24 @@ The instance twitter was created successfully
 assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
 assert_end Create an instance with on a existing directory and try again with -f option
+
+# Create an instance without the required parameter
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo create" 1
+assert "./ineo create" \
+"
+ERROR: create requires an instance name!
+
+To help about the command 'create' type:
+  ineo help create
+"
+
+assert_end Create an instance without the required parameter
 
 # ==============================================================================
 # TEST INSTANCE ACTIONS (START, STATUS, RESTART, STOP)
@@ -1002,3 +1038,160 @@ assert_raises "./ineo destroy -f twitter" 0
 assert_not_run_pid $pid
 
 assert_end Destroy correctly
+
+# ==============================================================================
+# TEST SET-PORT
+# ==============================================================================
+
+# Set-port with incorrect parameters
+# ------------------------------------------------------------------------------
+setup
+
+params=(
+  "-x" 'x'
+  "-x -y" 'x'
+  "-x twitter" 'x'
+  "facebook 9898 twitter" 'twitter'
+  "-x facebook 9898" 'x'
+)
+
+for ((i=0; i<${#params[*]}; i+=2)); do
+  assert_raises "./ineo set-port ${params[i]}" 1
+  assert        "./ineo set-port ${params[i]}" \
+"
+ERROR: Invalid argument or option: ${params[i+1]}!
+
+To help about the command 'set-port' type:
+  ineo help set-port
+"
+done
+
+assert_end Set-port with incorrect parameters
+
+# Set-port without the require parameters
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo create twitter" 0
+
+assert_raises "./ineo set-port" 1
+assert        "./ineo set-port" \
+"
+ERROR: set-port requires an instance name and a port number!
+
+To help about the command 'set-port' type:
+  ineo help set-port
+"
+
+assert_raises "./ineo set-port twitter" 1
+assert        "./ineo set-port twitter" \
+"
+ERROR: set-port requires an instance name and a port number!
+
+To help about the command 'set-port' type:
+  ineo help set-port
+"
+
+assert_end Set-port on a non-existent instance
+
+# Set-port on a non-existent instance
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo set-port twitter 7575" 1
+assert        "./ineo set-port twitter 7474" \
+"
+ERROR: There is not an instance with the name 'twitter' or is not properly installed!
+
+Use 'ineo instances' to list the instances installed
+"
+
+assert_end Set-port on a non-existent instance
+
+# Set-port with an incorrect number port
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo create twitter" 0
+
+assert_raises "./ineo set-port twitter aaa" 1
+assert        "./ineo set-port twitter aaa" \
+"
+ERROR: The port must be a positive integer number!
+
+To help about the command 'set-port' type:
+  ineo help set-port
+"
+
+assert_end Set-port with an incorrect number port
+
+# Set-port with an incorrect out of range port
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo create twitter" 0
+
+assert_raises "./ineo set-port twitter 65536" 1
+assert        "./ineo set-port twitter 65536" \
+"
+ERROR: The port must be a number between 1 and 65535!
+
+To help about the command 'set-port' type:
+  ineo help set-port
+"
+
+assert_raises "./ineo set-port twitter 0" 1
+assert        "./ineo set-port twitter 0" \
+"
+ERROR: The port must be a number between 1 and 65535!
+
+To help about the command 'set-port' type:
+  ineo help set-port
+"
+
+assert_end Set-port with an incorrect out of range port
+
+# Set-port correctly
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+# Test http port
+assert_raises "./ineo create twitter" 0
+
+assert_raises "./ineo set-port twitter 1" 0
+assert        "./ineo set-port twitter 1" \
+"
+The http port was successfully changed to '1'."
+
+assert_raises "./ineo set-port twitter 65535" 0
+assert        "./ineo set-port twitter 65535" \
+"
+The http port was successfully changed to '65535'."
+
+# Test https port
+assert_raises "./ineo set-port -s twitter 1" 0
+assert        "./ineo set-port -s twitter 1" \
+"
+The https port was successfully changed to '1'."
+
+assert_raises "./ineo set-port -s twitter 65535" 0
+assert        "./ineo set-port -s twitter 65535" \
+"
+The https port was successfully changed to '65535'."
+
+assert_end Set-port correctly
