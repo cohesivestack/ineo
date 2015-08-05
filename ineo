@@ -75,7 +75,7 @@ then
   exit 1
 fi
 
-trap "rm -rf $TEMP_DIR; rmdir $LOCK_DIR" EXIT
+trap "rmdir $LOCK_DIR; rm -rf $TEMP_DIR" EXIT
 
 # ==============================================================================
 # INVALID COMMAND FUNCTION
@@ -627,6 +627,89 @@ function set-port {
 }
 
 # ==============================================================================
+# CLEAR-DATA
+# ==============================================================================
+
+# Command
+function clear-data {
+  local force=false
+
+  shift
+  while getopts ":f" optname
+  do
+    case "${optname}" in
+      f)
+        force=true
+        ;;
+      *)
+        invalid_command_param $OPTARG 'clear-data'
+        exit 1
+        ;;
+    esac
+  done
+
+  local instance_name=${@:$OPTIND:1}
+
+  shift
+  local arg=${@:$OPTIND:1}
+  if [ ! -z "$arg" ]; then
+    invalid_command_param $arg 'clear-data'
+    exit 1
+  fi
+
+  # Clear-data requires an instance name
+  if [[ -z "$instance_name" ]]; then
+    printf "\nERROR: clear-data requires an instance name!\n\n"
+    printf "To help about the command 'clear-data' type:\n"
+    printf "  ineo help clear-data\n"
+    exit 1
+  fi
+
+  # Check if the directory exists
+  if [ ! -d "$INEO_HOME/instances/${instance_name}" ]; then
+    printf "\nERROR: There is not an instance with the name '${instance_name}' or is not properly installed!\n\n"
+    printf "Use 'ineo instances' to list the instances installed\n"
+    exit 1
+  fi
+
+  # Confirm clear-data
+  if [[ "$force" == false ]]; then
+    printf "\nWARNING: clear-data on the instance '${instance_name}' will remove all data for this instance!\n\n"
+    read -p "Are you sure you want to continue clearing the data for '${instance_name}'? (y/n) " -r
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
+  fi
+
+  # Check if the instance is running
+  if [ -f "$INEO_HOME/instances/${instance_name}/data/neo4j-service.pid" ]; then
+
+    if [[ "$force" == false ]]; then
+      printf "\nWARNING: The instance '${instance_name}' is running!\n\n"
+      read -p "Are you sure you want to stop '${instance_name}' and clear the data? (y/n) " -r
+
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+      fi
+    fi
+
+    # Stop the instance
+    ${INEO_HOME}/instances/${instance_name}/bin/neo4j stop
+  fi
+
+  if [ ! -d "$INEO_HOME/instances/${instance_name}/data/graph.db" ]; then
+    printf "\nINFO: There is not a database on the instance '${instance_name}', so nothing was removed.\n\n"
+    exit 0
+  fi
+
+  rm -rf ${INEO_HOME}/instances/${instance_name}/data/graph.db
+
+  printf "\nThe data for the instance '${instance_name}' was successfully removed.\n\n"
+  exit 0
+
+}
+
+# ==============================================================================
 # VERSIONS
 # ==============================================================================
 
@@ -666,7 +749,7 @@ HELP="USAGE:
 COMMANDS:
 
   create      Create a new instance with a specific <name>
-  destroy     Remove a specific instance <name>
+  set-port    Change the port of a specific instance <name>
   versions    Show the versions available to install
   instances   Show the information about the instances installed
 
@@ -675,8 +758,8 @@ COMMANDS:
   restart     Restart neo4j instances
   status      Show instances status
 
-  clear-data  Delete all data of a specific instance
-  set-port    Change the port of a specific instance
+  clear-data  Delete all data of a specific instance <name>
+  destroy     Remove a specific instance <name>
 
   install     Install ineo
   update      Update ineo
@@ -791,6 +874,9 @@ case $COMMAND in
     ;;
   console|start|start-no-wait|stop|restart|status|info)
     action $@
+    ;;
+  clear-data)
+    clear-data $@
     ;;
   set-port)
     set-port $@

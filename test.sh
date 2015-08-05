@@ -1116,7 +1116,7 @@ To help about the command 'set-port' type:
   ineo help set-port
 "
 
-assert_end Set-port on a non-existent instance
+assert_end Set-port without the require parameters
 
 # Set-port on a non-existent instance
 # ------------------------------------------------------------------------------
@@ -1216,3 +1216,219 @@ assert        "./ineo set-port -s twitter 65535" \
 The https port was successfully changed to '65535'."
 
 assert_end Set-port correctly
+
+# ==============================================================================
+# TEST CLEAR-DATA
+# ==============================================================================
+
+# Clear-data with incorrect parameters
+# ------------------------------------------------------------------------------
+setup
+
+params=(
+  "-x" 'x'
+  "-x -y" 'x'
+  "-x twitter" 'x'
+  "facebook twitter" 'twitter'
+  "-x facebook" 'x'
+)
+
+for ((i=0; i<${#params[*]}; i+=2)); do
+  assert_raises "./ineo clear-data ${params[i]}" 1
+  assert        "./ineo clear-data ${params[i]}" \
+"
+ERROR: Invalid argument or option: ${params[i+1]}!
+
+To help about the command 'clear-data' type:
+  ineo help clear-data
+"
+done
+
+assert_end Clear-data with incorrect parameters
+
+# Clear-data without the require parameters
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo create twitter" 0
+
+assert_raises "./ineo clear-data" 1
+assert        "./ineo clear-data" \
+"
+ERROR: clear-data requires an instance name!
+
+To help about the command 'clear-data' type:
+  ineo help clear-data
+"
+
+assert_end Clear-data without the require parameters
+
+# Clear-data on a non-existent instance
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo clear-data twitter" 1
+assert        "./ineo clear-data twitter" \
+"
+ERROR: There is not an instance with the name 'twitter' or is not properly installed!
+
+Use 'ineo instances' to list the instances installed
+"
+
+assert_end Clear-data on a non-existent instance
+
+# Clear-data correctly
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+# Test confirming without an instance running
+
+assert_raises "./ineo create twitter" 0
+# Create a fake directory
+assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+
+assert_raises "echo -ne 'y\n' | ./ineo clear-data twitter" 0
+
+# Create a fake directory
+assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+
+assert "echo -ne 'y\n' | ./ineo clear-data twitter" \
+"
+WARNING: clear-data on the instance 'twitter' will remove all data for this instance!
+
+
+The data for the instance 'twitter' was successfully removed.
+
+"
+
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+# Test confirming with an instance running
+
+# Create a fake directory
+assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+
+assert_raises "./ineo start twitter" 0
+
+pid=$(get_instance_pid twitter)
+assert_run_pid $pid
+
+assert_raises "echo -ne 'y\ny\n' | ./ineo clear-data twitter" 0
+
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+assert_not_run_pid $pid
+
+# Test forcing without an instance running
+
+# Create a fake directory
+assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+
+assert_raises "./ineo clear-data -f twitter" 0
+
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+# Create a fake directory
+assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+
+assert "./ineo clear-data -f twitter" \
+"
+The data for the instance 'twitter' was successfully removed.
+
+"
+
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+# Test forcing with an instance running
+
+# Create a fake directory
+assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+
+assert_raises "./ineo start twitter" 0
+
+pid=$(get_instance_pid twitter)
+assert_run_pid $pid
+
+assert_raises "./ineo clear-data -f twitter" 0
+
+assert_not_run_pid $pid
+
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+assert_end Clear-data correctly
+
+# Clear-data correctly without a database file
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+# Test confirming without an instance running
+
+assert_raises "./ineo create twitter" 0
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+assert_raises "echo -ne 'y\n' | ./ineo clear-data twitter" 0
+
+assert "echo -ne 'y\n' | ./ineo clear-data twitter" \
+"
+WARNING: clear-data on the instance 'twitter' will remove all data for this instance!
+
+
+INFO: There is not a database on the instance 'twitter', so nothing was removed.
+
+"
+
+# Test confirming with an instance running
+
+assert_raises "./ineo start twitter" 0
+
+pid=$(get_instance_pid twitter)
+assert_run_pid $pid
+
+assert_raises "echo -ne 'y\ny\n' | ./ineo clear-data twitter" 0
+
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+assert_not_run_pid $pid
+
+# Test forcing without an instance running
+
+assert_raises "./ineo clear-data -f twitter" 0
+
+assert "./ineo clear-data -f twitter" \
+"
+INFO: There is not a database on the instance 'twitter', so nothing was removed.
+
+"
+
+# Test forcing with an instance running
+
+assert_raises "./ineo start twitter" 0
+
+pid=$(get_instance_pid twitter)
+assert_run_pid $pid
+
+assert_raises "./ineo clear-data -f twitter" 0
+
+assert_not_run_pid $pid
+
+assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+assert_end Clear-data correctly without a database file
