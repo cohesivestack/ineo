@@ -959,6 +959,24 @@ done
 
 assert_end Destroy with incorrect parameters
 
+# Destroy an instance without the required parameter
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+assert_raises "./ineo destroy" 1
+assert "./ineo destroy" \
+"
+ERROR: destroy requires an instance name!
+
+To help about the command 'destroy' type:
+  ineo help destroy
+"
+
+assert_end Destroy an instance without the required parameter
+
 # Destroy a non-existent instance
 # ------------------------------------------------------------------------------
 setup

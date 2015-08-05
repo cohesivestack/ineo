@@ -459,6 +459,14 @@ function destroy {
 
   local instance_name=${@:$OPTIND:1}
 
+  # Destroy requires an instance name
+  if [[ -z "$instance_name" ]]; then
+    printf "\nERROR: destroy requires an instance name!\n\n"
+    printf "To help about the command 'destroy' type:\n"
+    printf "  ineo help destroy\n"
+    exit 1
+  fi
+
   shift
   local arg2=${@:$OPTIND:1}
   if [ ! -z "$arg2" ]; then
@@ -619,7 +627,6 @@ function set-port {
   fi
 
 }
-
 
 # ==============================================================================
 # VERSIONS
