@@ -301,18 +301,18 @@ function create {
   done
   local instance_name=${@:$OPTIND:1}
 
+  shift
+  local arg2=${@:$OPTIND:1}
+  if [ ! -z "$arg2" ]; then
+    invalid_command_param $arg2 'create'
+    exit 1
+  fi
+
   # The action create always requires an instance name
   if [[ -z "$instance_name" ]]; then
     printf "\nERROR: create requires an instance name!\n\n"
     printf "To help about the command 'create' type:\n"
     printf "  ineo help create\n"
-    exit 1
-  fi
-
-  shift
-  local arg2=${@:$OPTIND:1}
-  if [ ! -z "$arg2" ]; then
-    invalid_command_param $arg2 'create'
     exit 1
   fi
 
@@ -459,18 +459,18 @@ function destroy {
 
   local instance_name=${@:$OPTIND:1}
 
+  shift
+  local arg2=${@:$OPTIND:1}
+  if [ ! -z "$arg2" ]; then
+    invalid_command_param $arg2 'destroy'
+    exit 1
+  fi
+
   # Destroy requires an instance name
   if [[ -z "$instance_name" ]]; then
     printf "\nERROR: destroy requires an instance name!\n\n"
     printf "To help about the command 'destroy' type:\n"
     printf "  ineo help destroy\n"
-    exit 1
-  fi
-
-  shift
-  local arg2=${@:$OPTIND:1}
-  if [ ! -z "$arg2" ]; then
-    invalid_command_param $arg2 'destroy'
     exit 1
   fi
 
