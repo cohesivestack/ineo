@@ -304,7 +304,8 @@ WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo director
   assert "echo -ne 'y\nn\n' | ./ineo uninstall $param" \
 "
 WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
-\n\n
+
+
 WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
 "
   # Ensure that directory exists yet
@@ -315,9 +316,11 @@ WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
   assert "echo -ne 'y\ny\n' | ./ineo uninstall $param" \
 "
 WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
-\n\n
+
+
 WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
-\n\n
+
+
 Ineo was successfully uninstalled
 "
   # Ensure that directory doesn't exists

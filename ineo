@@ -238,7 +238,6 @@ function uninstall {
     if [ ! -d "$INEO_HOME/bin" ] || [ ! -d "$INEO_HOME/neo4j" ] || [ ! -d "$INEO_HOME/instances" ]; then
       printf "\nWARNING: The directory '$INEO_HOME' doesn't look like an Ineo directory!\n\n"
       read -p "Are you sure this directory is an Ineo directory? (y/n) " -r
-      echo    # (optional) move to a new line
       if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         exit 1
       fi
@@ -246,7 +245,6 @@ function uninstall {
 
     printf "\nWARNING: This action will remove everything in '$INEO_HOME'!\n\n"
     read -p "Are you sure you want to do this action? (y/n) " -r
-    echo    # (optional) move to a new line
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
       exit 1
     fi
