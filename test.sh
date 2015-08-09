@@ -888,13 +888,13 @@ assert        "./ineo instances" \
 "
 > instance 'facebook'
   VERSION: 2.2.2
-  PATH:    /Users/carlosforero/shell/ineo/ineo_for_test/instances/facebook
+  PATH:    $INEO_HOME/instances/facebook
   PORT:    7575
   HTTPS:   8585
 
 > instance 'twitter'
   VERSION: 2.2.2
-  PATH:    /Users/carlosforero/shell/ineo/ineo_for_test/instances/twitter
+  PATH:    $INEO_HOME/instances/twitter
   PORT:    7474
   HTTPS:   8484
 "
