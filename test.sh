@@ -21,15 +21,15 @@ then
   versions=(1.9.9 2.0.4 2.1.8 2.2.2)
 fi
 
-# Creates directories if not exists
-mkdir -p tars_for_test
+# On fake_neo4j_host is used to save cache tars
+mkdir -p fake_neo4j_host
 
 # If some Neo4J version has not been downloaded then try to download it, so can
 # test locally reducing remote http requests.
 for version in "${versions[@]}"
 do
   tar_name="neo4j-community-$version-unix.tar.gz"
-  if [ ! -f tars_for_test/${tar_name} ]; then
+  if [ ! -f fake_neo4j_host/${tar_name} ]; then
     printf "\n\nDownloading ${version}\n\n"
     if ! curl -f -o /tmp/${$}.${tar_name} ${NEO4J_HOSTNAME}/${tar_name}
     then
@@ -37,9 +37,16 @@ do
       exit 0
     fi
 
-    mv /tmp/${$}.${tar_name} tars_for_test/${tar_name}
+    mv /tmp/${$}.${tar_name} fake_neo4j_host/${tar_name}
   fi
 done
+
+# fake_ineo_host is used to do a fake update on tests, this will be the last ineo
+# script but with a different version
+mkdir -p fake_ineo_host
+
+cp ./ineo ./fake_ineo_host/ineo
+sed -i.bak "/^\(VERSION=\).*/s//\1x.x.x/" ./fake_ineo_host/ineo
 
 set -e
 
@@ -420,7 +427,8 @@ assert_end Create with incorrect parameters
 # Set the variables to create instances
 # ------------------------------------------------------------------------------
 
-export NEO4J_HOSTNAME="file:///$(pwd)/tars_for_test"
+export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
+export INEO_HOSTNAME="file:///$(pwd)/fake_ineo_host"
 export INEO_HOME="$(pwd)/ineo_for_test"
 
 # Create an instance correctly with different variations of parameters
@@ -480,7 +488,7 @@ setup
 rm -fr bad_tar_for_test
 mkdir bad_tar_for_test
 
-cp tars_for_test/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz bad_tar_for_test
+cp fake_neo4j_host/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz bad_tar_for_test
 
 gtruncate -s20MB bad_tar_for_test/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz
 
@@ -509,7 +517,7 @@ assert_raises "test -d $(pwd)/ineo_for_test/instances/twitter" 1
 rm -fr bad_tar_for_test
 mkdir bad_tar_for_test
 
-cp tars_for_test/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz bad_tar_for_test
+cp fake_neo4j_host/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz bad_tar_for_test
 
 # Create the instance with a good tar version
 assert "./ineo create -d -v$DEFAULT_VERSION twitter" \
@@ -525,7 +533,7 @@ assert_raises \
 assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
 # Restore the correct NEO4J_HOSTNAME for test
-export NEO4J_HOSTNAME="file:///$(pwd)/tars_for_test"
+export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
 
 assert_end Create an instance with a bad tar and try again with -d option
 
@@ -1234,13 +1242,13 @@ params=(
 )
 
 for ((i=0; i<${#params[*]}; i+=2)); do
-  assert_raises "./ineo clear-data ${params[i]}" 1
-  assert        "./ineo clear-data ${params[i]}" \
+  assert_raises "./ineo delete-db ${params[i]}" 1
+  assert        "./ineo delete-db ${params[i]}" \
 "
 ERROR: Invalid argument or option: ${params[i+1]}!
 
-To help about the command 'clear-data' type:
-  ineo help clear-data
+To help about the command 'delete-db' type:
+  ineo help delete-db
 "
 done
 
@@ -1255,13 +1263,13 @@ assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
 assert_raises "./ineo create twitter" 0
 
-assert_raises "./ineo clear-data" 1
-assert        "./ineo clear-data" \
+assert_raises "./ineo delete-db" 1
+assert        "./ineo delete-db" \
 "
-ERROR: clear-data requires an instance name!
+ERROR: delete-db requires an instance name!
 
-To help about the command 'clear-data' type:
-  ineo help clear-data
+To help about the command 'delete-db' type:
+  ineo help delete-db
 "
 
 assert_end Clear-data without the require parameters
@@ -1273,8 +1281,8 @@ setup
 # Make an installation
 assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-assert_raises "./ineo clear-data twitter" 1
-assert        "./ineo clear-data twitter" \
+assert_raises "./ineo delete-db twitter" 1
+assert        "./ineo delete-db twitter" \
 "
 ERROR: There is not an instance with the name 'twitter' or is not properly installed!
 
@@ -1297,15 +1305,15 @@ assert_raises "./ineo create twitter" 0
 assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-assert_raises "echo -ne 'y\n' | ./ineo clear-data twitter" 0
+assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
 
 # Create a fake directory
 assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-assert "echo -ne 'y\n' | ./ineo clear-data twitter" \
+assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
-WARNING: clear-data on the instance 'twitter' will remove all data for this instance!
+WARNING: delete-db on the instance 'twitter' will remove all data for this instance!
 
 
 The data for the instance 'twitter' was successfully removed.
@@ -1325,7 +1333,7 @@ assert_raises "./ineo start twitter" 0
 pid=$(get_instance_pid twitter)
 assert_run_pid $pid
 
-assert_raises "echo -ne 'y\ny\n' | ./ineo clear-data twitter" 0
+assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
 
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
@@ -1337,7 +1345,7 @@ assert_not_run_pid $pid
 assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-assert_raises "./ineo clear-data -f twitter" 0
+assert_raises "./ineo delete-db -f twitter" 0
 
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
@@ -1345,7 +1353,7 @@ assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-assert "./ineo clear-data -f twitter" \
+assert "./ineo delete-db -f twitter" \
 "
 The data for the instance 'twitter' was successfully removed.
 
@@ -1364,7 +1372,7 @@ assert_raises "./ineo start twitter" 0
 pid=$(get_instance_pid twitter)
 assert_run_pid $pid
 
-assert_raises "./ineo clear-data -f twitter" 0
+assert_raises "./ineo delete-db -f twitter" 0
 
 assert_not_run_pid $pid
 
@@ -1384,11 +1392,11 @@ assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 assert_raises "./ineo create twitter" 0
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-assert_raises "echo -ne 'y\n' | ./ineo clear-data twitter" 0
+assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
 
-assert "echo -ne 'y\n' | ./ineo clear-data twitter" \
+assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
-WARNING: clear-data on the instance 'twitter' will remove all data for this instance!
+WARNING: delete-db on the instance 'twitter' will remove all data for this instance!
 
 
 INFO: There is not a database on the instance 'twitter', so nothing was removed.
@@ -1402,7 +1410,7 @@ assert_raises "./ineo start twitter" 0
 pid=$(get_instance_pid twitter)
 assert_run_pid $pid
 
-assert_raises "echo -ne 'y\ny\n' | ./ineo clear-data twitter" 0
+assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
 
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
@@ -1410,9 +1418,9 @@ assert_not_run_pid $pid
 
 # Test forcing without an instance running
 
-assert_raises "./ineo clear-data -f twitter" 0
+assert_raises "./ineo delete-db -f twitter" 0
 
-assert "./ineo clear-data -f twitter" \
+assert "./ineo delete-db -f twitter" \
 "
 INFO: There is not a database on the instance 'twitter', so nothing was removed.
 
@@ -1425,10 +1433,61 @@ assert_raises "./ineo start twitter" 0
 pid=$(get_instance_pid twitter)
 assert_run_pid $pid
 
-assert_raises "./ineo clear-data -f twitter" 0
+assert_raises "./ineo delete-db -f twitter" 0
 
 assert_not_run_pid $pid
 
 assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
 assert_end Clear-data correctly without a database file
+
+# ==============================================================================
+# TEST UPDATE
+# ==============================================================================
+
+# Update with incorrect parameters
+# ------------------------------------------------------------------------------
+setup
+
+params=(
+  "-x" '-x'
+  "-x -y" '-x'
+  "facebook" 'facebook'
+  "facebook twitter" 'facebook'
+  "-x facebook" '-x'
+)
+
+for ((i=0; i<${#params[*]}; i+=2)); do
+  assert_raises "./ineo update ${params[i]}" 1
+  assert        "./ineo update ${params[i]}" \
+"
+ERROR: Invalid argument or option: ${params[i+1]}!
+
+To help about the command 'update' type:
+  ineo help update
+"
+done
+
+assert_end Update with incorrect parameters
+
+# Update correctly
+# ------------------------------------------------------------------------------
+setup
+
+# Make an installation
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+assert_raises "./ineo update" 0
+
+setup
+assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+old_version=$(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo)
+
+assert "./ineo update" \
+"
+Ineo was successfully upgraded from $old_version to x.x.x
+
+"
+
+assert_raises "test $(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo) = 'x.x.x'" 0
+
+assert_end update correctly

@@ -1,4 +1,5 @@
 bad_tar_for_test
+fake_ineo_host
+fake_neo4j_host
 ineo_for_test
-tars_for_test
 .DS_Store

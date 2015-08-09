@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-VERSION=0.1.0
+VERSION=1.0
 
 DEFAULT_HOME="$HOME/.ineo"
 
@@ -30,9 +30,13 @@ DEFAULT_VERSION='2.2.2'
 
 DEFAULT_PORT='7474'
 
-# NEO4J_HOSTNAME can be assigned from the environment, so it can be changed
+# NEO4J_HOSTNAME can be assigned from the environment, so can be changed
 # with testing to use tars in tars_for_test folder
 NEO4J_HOSTNAME="${NEO4J_HOSTNAME:-http://dist.neo4j.org}"
+
+# INEO_HOSTNAME can be assigned from the environment, so it can be changed
+# with testing to use a mock updating
+INEO_HOSTNAME="${INEO_HOSTNAME:-http://ineo.cohesivestack.com}"
 
 NEO4J_VERSIONS='1.9.9\n2.0.4\n2.1.8\n2.2.2\n'
 
@@ -58,24 +62,6 @@ function set_instances {
 }
 
 set_instances
-
-# ==============================================================================
-# LOCK FUNCTION
-# ==============================================================================
-
-if ! mkdir $LOCK_DIR
-then
-  echo "FATAL: Lock failed - exit" >&2
-  exit 1
-fi
-
-if ! mkdir $TEMP_DIR
-then
-  echo "FATAL: Creating then temp dir '$TEMP_DIR' failed - exit" >&2
-  exit 1
-fi
-
-trap "rmdir $LOCK_DIR; rm -rf $TEMP_DIR" EXIT
 
 # ==============================================================================
 # INVALID COMMAND FUNCTION
@@ -261,6 +247,66 @@ function uninstall {
   printf "\nIneo was successfully uninstalled\n"
   exit 0
 }
+
+# ==============================================================================
+# VERSION
+# ==============================================================================
+
+function version {
+  if [ ! -z $2 ]
+  then
+    invalid_command_param $2 'version'
+    exit 1
+  fi
+
+  printf "\nThe installed version of ineo is ${VERSION}\n\n"
+}
+
+# ==============================================================================
+# UPDATE
+# ==============================================================================
+
+function update {
+  if [ ! -z $2 ]
+  then
+    invalid_command_param $2 'update'
+    exit 1
+  fi
+
+  local local_file=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`
+
+  local remote_file=${TEMP_DIR}/remote_ineo
+
+  curl -s -o $remote_file ${INEO_HOSTNAME}/ineo
+
+  if cmp --silent $local_file $remote_file; then
+    printf "\nThe last ineo version already is installed!\nso nothing was updated.\n"
+    version
+  else
+    chmod 700 $remote_file
+    $remote_file UPDATE_SCRIPT_BATCH $INEO_HOME $TEMP_DIR $VERSION
+  fi
+  exit 0
+}
+
+# ==============================================================================
+# UPDATE_SCRIPT_BATCH
+# ==============================================================================
+
+function update_script_batch {
+
+  local ineo_home=$2
+  local temp_dir=$3
+  local old_version=$4
+
+  local local_file=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`
+
+  cp $local_file $ineo_home/bin/ineo
+
+  printf "\nIneo was successfully upgraded from $old_version to $VERSION\n\n"
+
+}
+
 
 # ==============================================================================
 # CREATE
@@ -627,11 +673,11 @@ function set-port {
 }
 
 # ==============================================================================
-# CLEAR-DATA
+# DELETE-DB
 # ==============================================================================
 
 # Command
-function clear-data {
+function delete-db {
   local force=false
 
   shift
@@ -642,7 +688,7 @@ function clear-data {
         force=true
         ;;
       *)
-        invalid_command_param $OPTARG 'clear-data'
+        invalid_command_param $OPTARG 'delete-db'
         exit 1
         ;;
     esac
@@ -653,15 +699,15 @@ function clear-data {
   shift
   local arg=${@:$OPTIND:1}
   if [ ! -z "$arg" ]; then
-    invalid_command_param $arg 'clear-data'
+    invalid_command_param $arg 'delete-db'
     exit 1
   fi
 
-  # Clear-data requires an instance name
+  # delete-db requires an instance name
   if [[ -z "$instance_name" ]]; then
-    printf "\nERROR: clear-data requires an instance name!\n\n"
-    printf "To help about the command 'clear-data' type:\n"
-    printf "  ineo help clear-data\n"
+    printf "\nERROR: delete-db requires an instance name!\n\n"
+    printf "To help about the command 'delete-db' type:\n"
+    printf "  ineo help delete-db\n"
     exit 1
   fi
 
@@ -672,9 +718,9 @@ function clear-data {
     exit 1
   fi
 
-  # Confirm clear-data
+  # Confirm delete-db
   if [[ "$force" == false ]]; then
-    printf "\nWARNING: clear-data on the instance '${instance_name}' will remove all data for this instance!\n\n"
+    printf "\nWARNING: delete-db on the instance '${instance_name}' will remove all data for this instance!\n\n"
     read -p "Are you sure you want to continue clearing the data for '${instance_name}'? (y/n) " -r
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
       exit 1
@@ -758,7 +804,7 @@ COMMANDS:
   restart     Restart neo4j instances
   status      Show instances status
 
-  clear-data  Delete all data of a specific instance <name>
+  delete-db  Delete all data of a specific instance <name>
   destroy     Remove a specific instance <name>
 
   install     Install ineo
@@ -854,11 +900,34 @@ OPTIONS:
 "
 
 # ==============================================================================
-# COMMAND SELECTOR
+# SET COMMAND VARIABLE
 # ==============================================================================
 
 COMMAND=$1
 
+# ==============================================================================
+# LOCK FUNCTION
+# ==============================================================================
+
+if [ ! "$COMMAND" == "UPDATE_SCRIPT_BATCH" ]; then
+  if ! mkdir $LOCK_DIR
+  then
+    echo "FATAL: Lock failed - exit" >&2
+    exit 1
+  fi
+
+  if ! mkdir $TEMP_DIR
+  then
+    echo "FATAL: Creating then temp dir '$TEMP_DIR' failed - exit" >&2
+    exit 1
+  fi
+
+  trap "rmdir $LOCK_DIR; rm -rf $TEMP_DIR" EXIT
+fi
+
+# ==============================================================================
+# COMMAND SELECTOR
+# ==============================================================================
 case $COMMAND in
   install)
     install $@
@@ -875,20 +944,29 @@ case $COMMAND in
   console|start|start-no-wait|stop|restart|status|info)
     action $@
     ;;
-  clear-data)
-    clear-data $@
+  delete-db)
+    delete-db $@
     ;;
   set-port)
     set-port $@
     ;;
+  update)
+    update $@
+    ;;
   versions)
     versions $@
+    ;;
+  version)
+    version $@
     ;;
   instances)
     instances $@
     ;;
   help)
     help $2
+    ;;
+  UPDATE_SCRIPT_BATCH)
+    update_script_batch $@
     ;;
   *)
     help
