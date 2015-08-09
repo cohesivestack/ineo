@@ -490,7 +490,15 @@ mkdir bad_tar_for_test
 
 cp fake_neo4j_host/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz bad_tar_for_test
 
-gtruncate -s20MB bad_tar_for_test/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz
+platform=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+if [ $platform = 'darwin' ]; then
+  command_truncate=gtruncate
+elif [ $platform = 'linux' ]; then
+  command_truncate=truncate
+fi
+
+$command_truncate -s20MB bad_tar_for_test/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz
 
 # Change the NEO4J_HOSTNAME for test to download the bad tar
 export NEO4J_HOSTNAME="file:///$(pwd)/bad_tar_for_test"
