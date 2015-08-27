@@ -1,22 +1,28 @@
-# ineo: A simple but useful neo4j version manager
+# ineo
 
-Neo4j is a great graph database, however its architecture was designed to work
-with one database process by application. This issue is a limitation when
-we are developing an application and need the test and development environments,
-or just when we are developing various applications.
+A simple but useful neo4j version manager
 
-Ineo figure out this limitation allowing to manage differents Neo4j instances on
-differents ports.
+Neo4j is a great graph database, however its architecture was designed to work with just one database process for each application. This issue is a limitation when we are developing an application and need an environment for test and development, or just when we are developing various applications.
 
-# Installation
+Ineo figure out this limitation allowing to manage differents Neo4j instances on differents ports.
+
+## Installation
+
+For installation just execute the bellow line on your terminal:
 
 ```
-$ \curl -sSSL https://raw.githubusercontent.com/carlosforero/ineo/master/ineo | bash setup
+curl -sSL http://getineo.cohesivestack.com/ineo | bash -s install
 ```
 
-# How to use
+and reload your .bash_profile to update the PATH environment variable:
 
-## Creating instances
+```
+source ~/.bash_profile
+```
+
+## How to use
+
+### Creating instances
 
 ```
 $ ineo create <instance_name> <port> <neo4j version (optional)>

@@ -181,7 +181,7 @@ do
 Ineo was successfully installed in $(pwd)/ineo_for_test.
 
 To start using the 'ineo' command reopen your terminal or enter:
-  source ~/.bashrc
+  source ~/.bash_profile
 "
 
   assert_raises "test -d ineo_for_test" 0
@@ -189,7 +189,7 @@ To start using the 'ineo' command reopen your terminal or enter:
   assert_raises "test -d ineo_for_test/instances" 0
 
   assert_raises \
-    "grep -Fq 'export INEO_HOME=$(pwd)/ineo_for_test; export PATH=\$INEO_HOME/bin:\$PATH' ~/.bashrc" 0
+    "grep -Fq 'export INEO_HOME=$(pwd)/ineo_for_test; export PATH=\$INEO_HOME/bin:\$PATH' ~/.bash_profile" 0
 done
 
 assert_end Install correctly.

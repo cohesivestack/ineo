@@ -137,20 +137,26 @@ function install {
   done
 
   # self copy to folder bin of ineo
-  cp $0 ${TEMP_DIR}/bin
+  if [[ `basename "$0"` == 'ineo' ]]; then
+    cp $0 ${TEMP_DIR}/bin
+  else
+    curl -sSL http://getineo.cohesivestack.com > ${TEMP_DIR}/bin/ineo
+  fi
+
+  chmod 755 ${TEMP_DIR}/bin/ineo
 
   # Create variable
-  local line_for_bashrc="export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME/bin:\$PATH"
+  local line_for_bash_profile="export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME/bin:\$PATH"
 
   # If not exists a line with the current Ineo home directory then proceeds to
   # create it
-  if ! grep -Fq "$line_for_bashrc" ~/.bashrc
+  if ! grep -Fq "$line_for_bash_profile" ~/.bash_profile
   then
     # Remove any old set variable
-    sed -i.bak '/export INEO_HOME=/d' ~/.bashrc
+    sed -i.bak '/export INEO_HOME=/d' ~/.bash_profile
 
-    # Add the line in .bashrc to export the variable
-    echo "$line_for_bashrc" >> ~/.bashrc
+    # Add the line in .bash_profile to export the variable
+    echo "$line_for_bash_profile" >> ~/.bash_profile
   fi
 
   # Move the TEMP_DIR to the target directory for ineo
@@ -158,7 +164,7 @@ function install {
 
   printf "\nIneo was successfully installed in $INEO_HOME.\n\n"
   printf "To start using the 'ineo' command reopen your terminal or enter:\n"
-  printf "  source ~/.bashrc\n"
+  printf "  source ~/.bash_profile\n"
   exit 0
 }
 
@@ -241,8 +247,8 @@ function uninstall {
 
   # Replace the directories separator (/) by (\/), so it can be used with sed
   INEO_HOME=${INEO_HOME//\//\\\/}
-  # Remove variable in .bashrc
-  sed -i.bak "/export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME\/bin:\$PATH/d" ~/.bashrc
+  # Remove variable in .bash_profile
+  sed -i.bak "/export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME\/bin:\$PATH/d" ~/.bash_profile
 
   printf "\nIneo was successfully uninstalled\n"
   exit 0
