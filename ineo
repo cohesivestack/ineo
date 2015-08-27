@@ -71,7 +71,7 @@ function invalid_command_param {
   local param=$1
   local command=$2
   printf "\nERROR: Invalid argument or option: $param!\n\n"
-  printf "To help about the command '$command' type:\n"
+  printf "For help about the command '$command' type:\n"
   printf "  ineo help $command\n"
 }
 
@@ -361,7 +361,7 @@ function create {
   # The action create always requires an instance name
   if [[ -z "$instance_name" ]]; then
     printf "\nERROR: create requires an instance name!\n\n"
-    printf "To help about the command 'create' type:\n"
+    printf "For help about the command 'create' type:\n"
     printf "  ineo help create\n"
     exit 1
   fi
@@ -519,7 +519,7 @@ function destroy {
   # Destroy requires an instance name
   if [[ -z "$instance_name" ]]; then
     printf "\nERROR: destroy requires an instance name!\n\n"
-    printf "To help about the command 'destroy' type:\n"
+    printf "For help about the command 'destroy' type:\n"
     printf "  ineo help destroy\n"
     exit 1
   fi
@@ -575,19 +575,26 @@ function instances {
     exit 1
   fi
 
-  for instance_name in "${INSTANCES[@]}"; do
-    version=$(head -n 1 $INEO_HOME/instances/$instance_name/.version)
-    port=$(sed -n '/^org\.neo4j\.server\.webserver\.port=\(.*\)$/s//\1/p' \
-      $INEO_HOME/instances/$instance_name/conf/neo4j-server.properties)
-    ssl=$(sed -n '/^org\.neo4j\.server\.webserver\.https.port=\(.*\)$/s//\1/p' \
-      $INEO_HOME/instances/$instance_name/conf/neo4j-server.properties)
+  if [ ${#INSTANCES[@]} -eq 0  ]; then
+    printf "\nThere are not any created instance yet.\n\n"
+    printf "Create the first one using the command 'create'.\n\n"
+    printf "For help about the command 'create' type:\n"
+    printf "  ineo help create\n"
+  else
+    for instance_name in "${INSTANCES[@]}"; do
+      version=$(head -n 1 $INEO_HOME/instances/$instance_name/.version)
+      port=$(sed -n '/^org\.neo4j\.server\.webserver\.port=\(.*\)$/s//\1/p' \
+        $INEO_HOME/instances/$instance_name/conf/neo4j-server.properties)
+      ssl=$(sed -n '/^org\.neo4j\.server\.webserver\.https.port=\(.*\)$/s//\1/p' \
+        $INEO_HOME/instances/$instance_name/conf/neo4j-server.properties)
 
-    printf "\n> instance '$instance_name'\n"
-    printf "  VERSION: ${version}\n"
-    printf "  PATH:    ${INEO_HOME}/instances/${instance_name}\n"
-    printf "  PORT:    ${port}\n"
-    printf "  HTTPS:   ${ssl}\n"
-  done
+      printf "\n> instance '$instance_name'\n"
+      printf "  VERSION: ${version}\n"
+      printf "  PATH:    ${INEO_HOME}/instances/${instance_name}\n"
+      printf "  PORT:    ${port}\n"
+      printf "  HTTPS:   ${ssl}\n"
+    done
+  fi
 }
 
 # ==============================================================================
@@ -640,21 +647,21 @@ function set-port {
 
   if [ -z "$instance_name" ] || [ -z "$port" ]; then
     printf "\nERROR: set-port requires an instance name and a port number!\n\n"
-    printf "To help about the command 'set-port' type:\n"
+    printf "For help about the command 'set-port' type:\n"
     printf "  ineo help set-port\n"
     exit 1
   fi
 
   if [[ ! $port =~ ^[0-9]+$ ]]; then
     printf "\nERROR: The port must be a positive integer number!\n\n"
-    printf "To help about the command 'set-port' type:\n"
+    printf "For help about the command 'set-port' type:\n"
     printf "  ineo help set-port\n"
     exit 1
   fi
 
   if (( port < 1 || port > 65535 )); then
     printf "\nERROR: The port must be a number between 1 and 65535!\n\n"
-    printf "To help about the command 'set-port' type:\n"
+    printf "For help about the command 'set-port' type:\n"
     printf "  ineo help set-port\n"
     exit 1
   fi
@@ -712,7 +719,7 @@ function delete-db {
   # delete-db requires an instance name
   if [[ -z "$instance_name" ]]; then
     printf "\nERROR: delete-db requires an instance name!\n\n"
-    printf "To help about the command 'delete-db' type:\n"
+    printf "For help about the command 'delete-db' type:\n"
     printf "  ineo help delete-db\n"
     exit 1
   fi
@@ -786,7 +793,7 @@ function help {
   then
     printf "$HELP"
   else
-    command=$(echo "help_$1" | tr '[:lower:]' '[:upper:]')
+    command=$(echo "help_$1" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
     printf "${!command}"
   fi
 }
@@ -802,15 +809,15 @@ COMMANDS:
 
   create      Create a new instance with a specific <name>
   set-port    Change the port of a specific instance <name>
-  versions    Show the versions available to install
-  instances   Show the information about the instances installed
+  versions    Show the neo4j versions available for installing
+  instances   Show the information about the installed instances
 
   start       Start neo4j instances
   stop        Stop neo4j instances
   restart     Restart neo4j instances
   status      Show instances status
 
-  delete-db  Delete all data of a specific instance <name>
+  delete-db   Delete all data of a specific instance <name>
   destroy     Remove a specific instance <name>
 
   install     Install ineo
@@ -830,55 +837,141 @@ ARGUMENTS:
   <instance_name>  Instance name to create
 
 OPTIONS:
-   -p <port>     Http server port for the neo4j instance.
-                 Default: 7474
-   -s <port>     Https server port (SSL port) for the neo4j instance.
-                 Default: <port>+1 (7475 when port is 7474)
-   -v <version>  The neo4j version for the instance
-                 Default: 2.2.2
+  -p <port>     Http server port for the neo4j instance.
+
+                Default: 7474
+
+  -s <port>     Https server port (SSL port) for the neo4j instance
+
+                Default: <port>+1 (7475 when port is 7474)
+
+  -v <version>  The neo4j version for the instance
+
+                Default: 2.2.2
+"
+
+HELP_SET_PORT="USAGE:
+  set-port [options] <instance_name> <port_number>
+
+DESCRIPTION:
+  Change the port of a specific instance
+
+ARGUMENTS:
+  <instance_name>  Instance name to change
+  <port_number>    New port number
+
+OPTIONS:
+  -s    Use this option for changing the SSL port
+"
+
+HELP_VERSIONS="USAGE:
+  versions
+
+DESCRIPTION:
+  Show the neo4j versions available for installing
+
+  This command show the versions available until the date of the current ineo
+  version. If the version you want to install is not listed, perhaps you need
+  to update the ineo version
+"
+
+HELP_INSTANCES="USAGE:
+  instances
+
+DESCRIPTION:
+  Show the information about the installed instances
 "
 
 HELP_START="USAGE:
-  start [options]
+  start [options] [instance_names ...]
 
 DESCRIPTION:
-  Start neo4j instances
+  Start one or more neo4j instances
+
+ARGUMENTS:
+  [instance_names ...]  Name of one or more instances to start (optional)
+
+                        If this argument is not specified then ineo tries
+                        to start all created instances
 
 OPTIONS:
-   [instance_names ...]  Name of one or more instances to start
-   -f                    Force to start all instances without confirmation
+  -q    Start the instances without confirmation
 "
 
 HELP_STOP="USAGE:
-  stop [options]
+  stop [options] [instance_names ...]
 
 DESCRIPTION:
-  Stop neo4j instances
+  Stop one or more neo4j instances
+
+ARGUMENTS:
+  [instance_names ...]  Name of one or more instances to stop (optional)
+
+                        If this argument is not specified then ineo tries
+                        to stop all created instances
 
 OPTIONS:
-  [instance_names ...]  Name of one or more instances to stop
-  -f                    Force to stop all instances without confirmation
+  -q    Stop the instances without confirmation
 "
 
 HELP_RESTART="USAGE:
-  restart [options]
+  restart [options] [instance_names ...]
 
 DESCRIPTION:
-  Restart neo4j instances
+  Restart one or more neo4j instances
+
+ARGUMENTS:
+  [instance_names ...]  Name of one or more instances to restart (optional)
+
+                        If this argument is not specified then ineo tries
+                        to restart all created instances
 
 OPTIONS:
-  [instance_names ...]  Name of one or more instances to restart
-  -f                    Force to restart all instances without confirmation
+  -q    Restart the instances without confirmation
 "
 
 HELP_STATUS="USAGE:
-  status [options]
+  status [instance_names ...]
 
 DESCRIPTION:
-  Show instances status
+  Show the status of one or more neo4j instances
+
+ARGUMENTS:
+  [instance_names ...]  Name of one or more instances to show status (optional)
+
+                        If this argument is not specified then ineo tries
+                        to show the status of all created instances
+"
+
+HELP_DELETE_DB="USAGE:
+  delete-db [options] <instance_name>
+
+DESCRIPTION:
+  Delete the data files for a specific instance.
+
+  This command delete the data files, so using it is slow on test-driven.
+
+  If you need delete the data for restart it on test-driven, use cypher instead:
+    'MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE n,r;'
+
+ARGUMENTS:
+  <instance_name>  Instance name of the data to delete
 
 OPTIONS:
-  [instance name ...]  Name of one or more instances to show status
+  -f    Delete the data without confirmation
+"
+
+HELP_DESTROY="USAGE:
+  destroy [options] <instance_name>
+
+DESCRIPTION:
+  Destroy a specific instance
+
+ARGUMENTS:
+  <instance_name>  Instance name to destroy
+
+OPTIONS:
+  -f    Destroy the instance without confirmation
 "
 
 HELP_INSTALL="USAGE:
@@ -887,9 +980,21 @@ HELP_INSTALL="USAGE:
 DESCRIPTION:
   Install ineo
 
+  Don't use this command if you already have ineo installed and working
+  correctly.
+
 OPTIONS:
-  -d <directory_name>  Directory name where ineo will be installed
-                       Default: (~/.ineo)
+  -d <directory_name>  Directory name (absolute path) where ineo will be
+                       installed
+
+                       Default: ~/.ineo
+"
+
+HELP_UPDATE="USAGE:
+  update
+
+DESCRIPTION:
+  Update the current installed ineo to the last version available
 "
 
 HELP_UNINSTALL="USAGE:
@@ -900,9 +1005,21 @@ DESCRIPTION:
 
 OPTIONS:
   -d <directory_name>  Directory name where ineo is installed
-                       The default value is the value of the variable \$INEO_HOME
-                       if it is configured
-  -f                   Try to uninstall without prompting for confirmation
+
+                       The default value is the value of the variable
+                       \$INEO_HOME if it is configured
+
+  -f                   Try to uninstall without confirmations
+"
+
+HELP_HELP="USAGE:
+  help [command_name]
+
+DESCRIPTION:
+  Show the help for ineo
+
+ARGUMENTS:
+  [command_name]  Optional name for displaying the help for a specific command
 "
 
 # ==============================================================================

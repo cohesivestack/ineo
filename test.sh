@@ -108,7 +108,7 @@ do
 "
 ERROR: Invalid argument or option: ${params[i+1]}!
 
-To help about the command 'install' type:
+For help about the command 'install' type:
   ineo help install
 "
 done
@@ -224,7 +224,7 @@ do
 "
 ERROR: Invalid argument or option: ${params[i+1]}!
 
-To help about the command 'uninstall' type:
+For help about the command 'uninstall' type:
   ineo help uninstall
 "
 done
@@ -386,7 +386,7 @@ assert "./ineo create" \
 "
 ERROR: create requires an instance name!
 
-To help about the command 'create' type:
+For help about the command 'create' type:
   ineo help create
 "
 
@@ -417,7 +417,7 @@ do
 "
 ERROR: Invalid argument or option: ${params[i+1]}!
 
-To help about the command 'create' type:
+For help about the command 'create' type:
   ineo help create
 "
 done
@@ -595,7 +595,7 @@ assert "./ineo create" \
 "
 ERROR: create requires an instance name!
 
-To help about the command 'create' type:
+For help about the command 'create' type:
   ineo help create
 "
 
@@ -626,7 +626,7 @@ for ((i=0; i<${#actions[*]}; i+=1)); do
 "
 ERROR: Invalid argument or option: ${params[j+1]}!
 
-To help about the command '${actions[i]}' type:
+For help about the command '${actions[i]}' type:
   ineo help ${actions[i]}
 "
   done
@@ -866,7 +866,7 @@ do
 "
 ERROR: Invalid argument or option: ${params[i]}!
 
-To help about the command 'instances' type:
+For help about the command 'instances' type:
   ineo help instances
 "
 done
@@ -921,7 +921,7 @@ do
 "
 ERROR: Invalid argument or option: ${params[i]}!
 
-To help about the command 'versions' type:
+For help about the command 'versions' type:
   ineo help versions
 "
 done
@@ -971,7 +971,7 @@ for ((i=0; i<${#params[*]}; i+=2)); do
 "
 ERROR: Invalid argument or option: ${params[i+1]}!
 
-To help about the command 'destroy' type:
+For help about the command 'destroy' type:
   ineo help destroy
 "
 done
@@ -990,7 +990,7 @@ assert "./ineo destroy" \
 "
 ERROR: destroy requires an instance name!
 
-To help about the command 'destroy' type:
+For help about the command 'destroy' type:
   ineo help destroy
 "
 
@@ -1098,7 +1098,7 @@ for ((i=0; i<${#params[*]}; i+=2)); do
 "
 ERROR: Invalid argument or option: ${params[i+1]}!
 
-To help about the command 'set-port' type:
+For help about the command 'set-port' type:
   ineo help set-port
 "
 done
@@ -1119,7 +1119,7 @@ assert        "./ineo set-port" \
 "
 ERROR: set-port requires an instance name and a port number!
 
-To help about the command 'set-port' type:
+For help about the command 'set-port' type:
   ineo help set-port
 "
 
@@ -1128,7 +1128,7 @@ assert        "./ineo set-port twitter" \
 "
 ERROR: set-port requires an instance name and a port number!
 
-To help about the command 'set-port' type:
+For help about the command 'set-port' type:
   ineo help set-port
 "
 
@@ -1165,7 +1165,7 @@ assert        "./ineo set-port twitter aaa" \
 "
 ERROR: The port must be a positive integer number!
 
-To help about the command 'set-port' type:
+For help about the command 'set-port' type:
   ineo help set-port
 "
 
@@ -1185,7 +1185,7 @@ assert        "./ineo set-port twitter 65536" \
 "
 ERROR: The port must be a number between 1 and 65535!
 
-To help about the command 'set-port' type:
+For help about the command 'set-port' type:
   ineo help set-port
 "
 
@@ -1194,7 +1194,7 @@ assert        "./ineo set-port twitter 0" \
 "
 ERROR: The port must be a number between 1 and 65535!
 
-To help about the command 'set-port' type:
+For help about the command 'set-port' type:
   ineo help set-port
 "
 
@@ -1255,7 +1255,7 @@ for ((i=0; i<${#params[*]}; i+=2)); do
 "
 ERROR: Invalid argument or option: ${params[i+1]}!
 
-To help about the command 'delete-db' type:
+For help about the command 'delete-db' type:
   ineo help delete-db
 "
 done
@@ -1276,7 +1276,7 @@ assert        "./ineo delete-db" \
 "
 ERROR: delete-db requires an instance name!
 
-To help about the command 'delete-db' type:
+For help about the command 'delete-db' type:
   ineo help delete-db
 "
 
@@ -1471,7 +1471,7 @@ for ((i=0; i<${#params[*]}; i+=2)); do
 "
 ERROR: Invalid argument or option: ${params[i+1]}!
 
-To help about the command 'update' type:
+For help about the command 'update' type:
   ineo help update
 "
 done
