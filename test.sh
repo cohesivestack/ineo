@@ -1,13 +1,30 @@
 #!/bin/bash
 
 NEO4J_HOSTNAME='http://dist.neo4j.org'
-DEFAULT_VERSION='2.2.2'
+DEFAULT_VERSION='all'
+LAST_VERSION='2.2.2'
 
 # ==============================================================================
 # PROVISION
 # ==============================================================================
 
-versions=( "$@" )
+versions=()
+tests=()
+
+while getopts ":v:" optname
+do
+  case "${optname}" in
+    v)
+      versions+=( ${OPTARG} )
+      ;;
+    *)
+      echo "Invalid parameters"
+      exit 1
+      ;;
+  esac
+done
+
+test_name=${@:$OPTIND:1}
 
 # If there are not any argument specified then test just with default Neo4j
 # version
@@ -15,8 +32,10 @@ if [ ${#versions[@]} -eq 0 ]
 then
   versions=("$DEFAULT_VERSION")
 
+fi
+
 # If is all then test with all Neo4j versions
-elif [ ${versions[0]} = 'all' ]
+if [ ${versions[0]} = 'all' ]
 then
   versions=(1.9.9 2.0.4 2.1.8 2.2.2)
 fi
@@ -57,12 +76,11 @@ set -e
 # PID FUNCTIONS
 # ==============================================================================
 
-function get_instance_pid {
+function set_instance_pid {
   local instance_name=$1
   assert_raises \
     "test -f $INEO_HOME/instances/$instance_name/data/neo4j-service.pid" 0
-  local pid=$(head -n 1 $INEO_HOME/instances/$instance_name/data/neo4j-service.pid)
-  echo "$pid"
+  pid=$(head -n 1 $INEO_HOME/instances/$instance_name/data/neo4j-service.pid)
 }
 
 function assert_run_pid {
@@ -88,341 +106,362 @@ function setup {
 # TEST INSTALL
 # ==============================================================================
 
-# Install with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+InstallWithIncorrectParameters() {
+  setup
 
-params=(
-  "-e $(pwd)/ineo_for_test" 'e'
-  "-e$(pwd)/ineo_for_test" 'e'
-  "x -d $(pwd)/ineo_for_test" 'x'
-  "x -d$(pwd)/ineo_for_test" 'x'
-  "-d $(pwd)/ineo_for_test y" 'y'
-  "-d$(pwd)/ineo_for_test y" 'y'
-)
+  params=(
+    "-e $(pwd)/ineo_for_test" 'e'
+    "-e$(pwd)/ineo_for_test" 'e'
+    "x -d $(pwd)/ineo_for_test" 'x'
+    "x -d$(pwd)/ineo_for_test" 'x'
+    "-d $(pwd)/ineo_for_test y" 'y'
+    "-d$(pwd)/ineo_for_test y" 'y'
+  )
 
-for ((i=0; i<${#params[*]}; i+=2))
-do
-  assert_raises "./ineo install ${params[i]}" 1
-  assert        "./ineo install ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=2))
+  do
+    assert_raises "./ineo install ${params[i]}" 1
+    assert        "./ineo install ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i+1]}!
+  ERROR: Invalid argument or option: ${params[i+1]}!
 
-For help about the command 'install' type:
+  For help about the command 'install' type:
   ineo help install
 "
-done
+  done
 
-# Install with a relative directory
-# ------------------------------------------------------------------------------
-setup
+  assert_end InstallWithIncorrectParameters
+}
+tests+=('InstallWithIncorrectParameters')
 
-params=(
-  '-d ineo_for_test'
-  '-dineo_for_test'
-)
 
-for param in "${params[@]}"
-do
-  assert_raises "./ineo install $param" 1
-  assert        "./ineo install $param" \
+InstallWithARelativePath() {
+  setup
+
+  params=(
+    '-d ineo_for_test'
+    '-dineo_for_test'
+  )
+
+  for param in "${params[@]}"
+  do
+    assert_raises "./ineo install $param" 1
+    assert        "./ineo install $param" \
 "
-ERROR: The directory 'ineo_for_test' is not an absolute path!
+  ERROR: The directory 'ineo_for_test' is not an absolute path!
 
-Use directories like:
+  Use directories like:
   /opt/ineo
   ~/.ineo
 "
-done
+  done
 
-assert_end Install on an existing directory
+  assert_end InstallWithARelativePath
+}
+tests+=('InstallWithARelativePath')
 
-# Install on an existing directory
-# ------------------------------------------------------------------------------
-setup
 
-assert_raises "mkdir $(pwd)/ineo_for_test" 0
-
-params=(
-  "-d $(pwd)/ineo_for_test"
-  "-d$(pwd)/ineo_for_test"
-)
-
-for param in "${params[@]}"
-do
-  assert_raises "./ineo install $param" 1
-  assert        "./ineo install $param" \
-"
-ERROR: The directory '$(pwd)/ineo_for_test' already exists!
-
-If you want reinstall ineo then uninstall it with:
-  ineo uninstall -d $(pwd)/ineo_for_test
-
-or ensure the directory doesn't contain anything important then remove it with:
-  rm -r $(pwd)/ineo_for_test
-"
-done
-
-assert_end Install on an existing directory
-
-# Install correctly
-# ------------------------------------------------------------------------------
-params=(
-  "-d $(pwd)/ineo_for_test"
-  "-d$(pwd)/ineo_for_test"
-)
-
-for param in "${params[@]}"
-do
+InstallOnAnExistingDirectory() {
   setup
 
-  assert "./ineo install $param" \
-"
-Ineo was successfully installed in $(pwd)/ineo_for_test.
+  assert_raises "mkdir $(pwd)/ineo_for_test" 0
 
-To start using the 'ineo' command reopen your terminal or enter:
+  params=(
+    "-d $(pwd)/ineo_for_test"
+    "-d$(pwd)/ineo_for_test"
+  )
+
+  for param in "${params[@]}"
+  do
+    assert_raises "./ineo install $param" 1
+    assert        "./ineo install $param" \
+"
+  ERROR: The directory '$(pwd)/ineo_for_test' already exists!
+
+  If you want reinstall ineo then uninstall it with:
+  ineo uninstall -d $(pwd)/ineo_for_test
+
+  or ensure the directory doesn't contain anything important then remove it with:
+  rm -r $(pwd)/ineo_for_test
+"
+  done
+
+  assert_end InstallOnAnExistingDirectory
+}
+tests+=('InstallOnAnExistingDirectory')
+
+
+InstallCorrectly() {
+  params=(
+    "-d $(pwd)/ineo_for_test"
+    "-d$(pwd)/ineo_for_test"
+  )
+
+  for param in "${params[@]}"
+  do
+    setup
+
+    assert "./ineo install $param" \
+"
+  Ineo was successfully installed in $(pwd)/ineo_for_test.
+
+  To start using the 'ineo' command reopen your terminal or enter:
   source ~/.bash_profile
 "
 
-  assert_raises "test -d ineo_for_test" 0
-  assert_raises "test -d ineo_for_test/bin" 0
-  assert_raises "test -d ineo_for_test/instances" 0
+    assert_raises "test -d ineo_for_test" 0
+    assert_raises "test -d ineo_for_test/bin" 0
+    assert_raises "test -d ineo_for_test/instances" 0
 
-  assert_raises \
-    "grep -Fq 'export INEO_HOME=$(pwd)/ineo_for_test; export PATH=\$INEO_HOME/bin:\$PATH' ~/.bash_profile" 0
-done
+    assert_raises \
+      "grep -Fq 'export INEO_HOME=$(pwd)/ineo_for_test; export PATH=\$INEO_HOME/bin:\$PATH' ~/.bash_profile" 0
+  done
 
-assert_end Install correctly.
+  assert_end InstallCorrectly
+}
+tests+=('InstallCorrectly')
 
 # ==============================================================================
 # TEST UNINSTALL
 # ==============================================================================
 
-# Uninstall with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+UninstallWithIncorrectParameters() {
+  setup
 
-params=(
-  "-e $(pwd)/ineo_for_test" 'e'
-  "-e$(pwd)/ineo_for_test" 'e'
-  "x -d $(pwd)/ineo_for_test" 'x'
-  "x -d$(pwd)/ineo_for_test" 'x'
-  "-d $(pwd)/ineo_for_test y" 'y'
-  "-d$(pwd)/ineo_for_test y" 'y'
-  "-e $(pwd)/ineo_for_test -f" 'e'
-  "-e$(pwd)/ineo_for_test -f" 'e'
-  "x -d $(pwd)/ineo_for_test -f" 'x'
-  "x -d$(pwd)/ineo_for_test -f" 'x'
-  "-f -d $(pwd)/ineo_for_test y" 'y'
-  "-f -d$(pwd)/ineo_for_test y" 'y'
-)
+  params=(
+    "-e $(pwd)/ineo_for_test" 'e'
+    "-e$(pwd)/ineo_for_test" 'e'
+    "x -d $(pwd)/ineo_for_test" 'x'
+    "x -d$(pwd)/ineo_for_test" 'x'
+    "-d $(pwd)/ineo_for_test y" 'y'
+    "-d$(pwd)/ineo_for_test y" 'y'
+    "-e $(pwd)/ineo_for_test -f" 'e'
+    "-e$(pwd)/ineo_for_test -f" 'e'
+    "x -d $(pwd)/ineo_for_test -f" 'x'
+    "x -d$(pwd)/ineo_for_test -f" 'x'
+    "-f -d $(pwd)/ineo_for_test y" 'y'
+    "-f -d$(pwd)/ineo_for_test y" 'y'
+  )
 
-for ((i=0; i<${#params[*]}; i+=2))
-do
-  assert_raises "./ineo uninstall ${params[i]}" 1
-  assert        "./ineo uninstall ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=2))
+  do
+    assert_raises "./ineo uninstall ${params[i]}" 1
+    assert        "./ineo uninstall ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i+1]}!
+  ERROR: Invalid argument or option: ${params[i+1]}!
 
-For help about the command 'uninstall' type:
+  For help about the command 'uninstall' type:
   ineo help uninstall
 "
-done
+  done
 
-assert_end Uninstall with incorrect parameters
+  assert_end UninstallWithIncorrectParameters
+}
+tests+=('UninstallWithIncorrectParameters')
 
-# Uninstall with a relative directory
-# ------------------------------------------------------------------------------
-setup
 
-params=(
-  '-d ineo_for_test'
-  '-dineo_for_test'
-)
+UninstallWithARelativeDirectory() {
+  setup
 
-for param in "${params[@]}"
-do
-  assert_raises "./ineo uninstall $param" 1
-  assert        "./ineo uninstall $param" \
+  params=(
+    '-d ineo_for_test'
+    '-dineo_for_test'
+  )
+
+  for param in "${params[@]}"
+  do
+    assert_raises "./ineo uninstall $param" 1
+    assert        "./ineo uninstall $param" \
 "
-ERROR: The directory 'ineo_for_test' is not an absolute path!
+  ERROR: The directory 'ineo_for_test' is not an absolute path!
 
-Use directories like:
+  Use directories like:
   /opt/ineo
   ~/.ineo
 "
-done
+  done
 
-assert_end Uninstall on an existing directory
-
-# Uninstall with a non-existent directory
-# ------------------------------------------------------------------------------
-setup
-
-params=(
-  "-d $(pwd)/ineo_for_test"
-  "-d$(pwd)/ineo_for_test"
-)
-
-# Ensure that directory doesn't exists
-assert_raises "test -d $(pwd)/ineo_for_test" 1
-
-for param in "${params[@]}"
-do
-  assert_raises "./ineo uninstall $param" 1
-  assert        "./ineo uninstall $param" \
-"
-ERROR: The directory '$(pwd)/ineo_for_test' doesn't exists!
-
-Are you sure Ineo is installed?
-"
-done
-
-assert_end Uninstall with a non-existent directory
-
-# Uninstall with a directory that doesn't looks like an Ineo directory
-# ------------------------------------------------------------------------------
-setup
-
-params=(
-  "-d $(pwd)/ineo_for_test"
-  "-d$(pwd)/ineo_for_test"
-)
-
-for param in "${params[@]}"
-do
-
-  # Make an installation
-  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-  # Remove a directory from Ineo
-  assert_raises "rm -fr $(pwd)/ineo_for_test/neo4j" 0
-
-  # Try uninstall saying no to first prompt
-  assert "echo -ne 'n\n' | ./ineo uninstall $param" \
-"
-WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
-"
-  # Ensure that directory exists yet
-  assert_raises "test -d $(pwd)/ineo_for_test" 0
+  assert_end UninstallWithARelativeDirectory
+}
+tests+=('UninstallWithARelativeDirectory')
 
 
-  # Try uninstall saying yes to first prompt and no to second prompt
-  assert "echo -ne 'y\nn\n' | ./ineo uninstall $param" \
-"
-WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
+UninstallWithANonExistentDirectory() {
+  setup
 
-
-WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
-"
-  # Ensure that directory exists yet
-  assert_raises "test -d $(pwd)/ineo_for_test" 0
-
-
-  # Uninstall saying yes to first prompt and yes to second prompt
-  assert "echo -ne 'y\ny\n' | ./ineo uninstall $param" \
-"
-WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
-
-
-WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
-
-
-Ineo was successfully uninstalled
-"
-  # Ensure that directory doesn't exists
-  assert_raises "test -d $(pwd)/ineo_for_test" 1
-done
-
-assert_end Uninstall with a directory that doesnt looks like an Ineo directory
-
-# Uninstall with a directory that doesn't looks like an Ineo directory using f
-# ------------------------------------------------------------------------------
-setup
-
-params=(
-  "-d $(pwd)/ineo_for_test -f"
-  "-d$(pwd)/ineo_for_test -f"
-  "-f -d $(pwd)/ineo_for_test"
-  "-f -d$(pwd)/ineo_for_test"
-)
-
-for param in "${params[@]}"
-do
-  # Make an installation
-  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-  # Remove a directory from Ineo
-  assert_raises "rm -fr $(pwd)/ineo_for_test/neo4j" 0
-
-  # Ensure that directory exists yet
-  assert_raises "test $(pwd)/ineo_for_test" 0
-
-  # Uninstall using force
-  assert "./ineo uninstall $param" \
-"
-Ineo was successfully uninstalled
-"
+  params=(
+    "-d $(pwd)/ineo_for_test"
+    "-d$(pwd)/ineo_for_test"
+  )
 
   # Ensure that directory doesn't exists
   assert_raises "test -d $(pwd)/ineo_for_test" 1
-done
 
-assert_end Uninstall with a directory that doesnt looks like an Ineo directory using f
+  for param in "${params[@]}"
+  do
+    assert_raises "./ineo uninstall $param" 1
+    assert        "./ineo uninstall $param" \
+"
+  ERROR: The directory '$(pwd)/ineo_for_test' doesn't exists!
+
+  Are you sure Ineo is installed?
+"
+  done
+
+  assert_end UninstallWithANonExistentDirectory
+}
+tests+=('UninstallWithANonExistentDirectory')
+
+
+UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory() {
+  setup
+
+  params=(
+    "-d $(pwd)/ineo_for_test"
+    "-d$(pwd)/ineo_for_test"
+  )
+
+  for param in "${params[@]}"
+  do
+
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+    # Remove a directory from Ineo
+    assert_raises "rm -fr $(pwd)/ineo_for_test/neo4j" 0
+
+    # Try uninstall saying no to first prompt
+    assert "echo -ne 'n\n' | ./ineo uninstall $param" \
+"
+  WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
+"
+    # Ensure that directory exists yet
+    assert_raises "test -d $(pwd)/ineo_for_test" 0
+
+
+    # Try uninstall saying yes to first prompt and no to second prompt
+    assert "echo -ne 'y\nn\n' | ./ineo uninstall $param" \
+"
+  WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
+
+
+  WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
+"
+    # Ensure that directory exists yet
+    assert_raises "test -d $(pwd)/ineo_for_test" 0
+
+
+    # Uninstall saying yes to first prompt and yes to second prompt
+    assert "echo -ne 'y\ny\n' | ./ineo uninstall $param" \
+"
+  WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
+
+
+  WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
+
+
+  Ineo was successfully uninstalled
+"
+    # Ensure that directory doesn't exists
+    assert_raises "test -d $(pwd)/ineo_for_test" 1
+  done
+
+  assert_end UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory
+}
+tests+=('UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory')
+
+
+UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectoryUsingF() {
+  setup
+
+  params=(
+    "-d $(pwd)/ineo_for_test -f"
+    "-d$(pwd)/ineo_for_test -f"
+    "-f -d $(pwd)/ineo_for_test"
+    "-f -d$(pwd)/ineo_for_test"
+  )
+
+  for param in "${params[@]}"
+  do
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+    # Remove a directory from Ineo
+    assert_raises "rm -fr $(pwd)/ineo_for_test/neo4j" 0
+
+    # Ensure that directory exists yet
+    assert_raises "test $(pwd)/ineo_for_test" 0
+
+    # Uninstall using force
+    assert "./ineo uninstall $param" \
+"
+  Ineo was successfully uninstalled
+"
+
+    # Ensure that directory doesn't exists
+    assert_raises "test -d $(pwd)/ineo_for_test" 1
+  done
+
+  assert_end UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectoryUsingF
+}
+tests+=('UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectoryUsingF')
+
 
 # ==============================================================================
 # TEST CREATE
 # ==============================================================================
 
-# Create an instance without the required parameter
-# ------------------------------------------------------------------------------
-setup
+CreateAnInstanceWithoutTheRequiredParameter() {
+  setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-assert_raises "./ineo create" 1
-assert "./ineo create" \
+  assert_raises "./ineo create" 1
+  assert "./ineo create" \
 "
-ERROR: create requires an instance name!
+  ERROR: create requires an instance name!
 
-For help about the command 'create' type:
+  For help about the command 'create' type:
   ineo help create
 "
 
-assert_end Create an instance without the required parameter
+  assert_end CreateAnInstanceWithoutTheRequiredParameter
+}
+tests+=('CreateAnInstanceWithoutTheRequiredParameter')
 
-# Create with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+CreateWithIncorrectParameters() {
+  setup
 
-params=(
-  "-x" 'x'
-  "-d -x" 'x'
-  "-f -x" 'x'
-  "-p7474 -x" 'x'
-  "-s7878 -x" 'x'
-  "-v2.2.2 -x" 'x'
-  "-p7474 -s7878 -v2.2.2 -d -f -x" 'x'
-  "facebook twitter" 'twitter'
-  "-x facebook twitter" 'x'
-  "-p7474 facebook twitter" 'twitter'
-  "-p7474 -s7878 -v2.2.2 -d -f facebook twitter" 'twitter'
-)
+  params=(
+    "-x" 'x'
+    "-d -x" 'x'
+    "-f -x" 'x'
+    "-p7474 -x" 'x'
+    "-s7878 -x" 'x'
+    "-v2.2.2 -x" 'x'
+    "-p7474 -s7878 -v2.2.2 -d -f -x" 'x'
+    "facebook twitter" 'twitter'
+    "-x facebook twitter" 'x'
+    "-p7474 facebook twitter" 'twitter'
+    "-p7474 -s7878 -v2.2.2 -d -f facebook twitter" 'twitter'
+  )
 
-for ((i=0; i<${#params[*]}; i+=2))
-do
-  assert_raises "./ineo create ${params[i]}" 1
-  assert        "./ineo create ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=2))
+  do
+    assert_raises "./ineo create ${params[i]}" 1
+    assert        "./ineo create ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i+1]}!
+  ERROR: Invalid argument or option: ${params[i+1]}!
 
-For help about the command 'create' type:
+  For help about the command 'create' type:
   ineo help create
 "
-done
+  done
 
-assert_end Create with incorrect parameters
+  assert_end CreateWithIncorrectParameters
+}
+tests+=('CreateWithIncorrectParameters')
 
 # Set the variables to create instances
 # ------------------------------------------------------------------------------
@@ -431,175 +470,218 @@ export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
 export INEO_HOSTNAME="file:///$(pwd)/fake_ineo_host"
 export INEO_HOME="$(pwd)/ineo_for_test"
 
-# Create an instance correctly with different variations of parameters
-# ------------------------------------------------------------------------------
+CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
+  # The parameters to check are 'port' 'ssl port' 'version'
+  params=(
+    'twitter'                        '7474' '7475' '2.2.2'
+    '-p8484 twitter'                 '8484' '8485' '2.2.2'
+    '-s9495 twitter'                 '7474' '9495' '2.2.2'
+    '-p8484 -s9495 twitter'          '8484' '9495' '2.2.2'
+    '-v1.9.9 twitter'                '7474' '7475' '1.9.9'
+    '-p8484 -v1.9.9 twitter'         '8484' '8485' '1.9.9'
+    '-s9495 -v1.9.9 twitter'         '7474' '9495' '1.9.9'
+    '-p8484 -s9495 -v1.9.9 twitter'  '8484' '9495' '1.9.9'
+  )
 
-# The parameters to check are 'port' 'ssl port' 'version'
-params=(
-  'twitter'                        '7474' '7475' '2.2.2'
-  '-p8484 twitter'                 '8484' '8485' '2.2.2'
-  '-s9495 twitter'                 '7474' '9495' '2.2.2'
-  '-p8484 -s9495 twitter'          '8484' '9495' '2.2.2'
-  '-v1.9.9 twitter'                '7474' '7475' '1.9.9'
-  '-p8484 -v1.9.9 twitter'         '8484' '8485' '1.9.9'
-  '-s9495 -v1.9.9 twitter'         '7474' '9495' '1.9.9'
-  '-p8484 -s9495 -v1.9.9 twitter'  '8484' '9495' '1.9.9'
-)
+  for ((i=0; i<${#params[*]}; i+=4))
+  do
+    setup
 
-for ((i=0; i<${#params[*]}; i+=4))
-do
+    port=${params[i+1]}
+    ssl_port=${params[i+2]}
+    version=${params[i+3]}
+    config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+    # Create the instance
+    assert "./ineo create ${params[i]}" \
+"
+  The instance twitter was created successfully
+
+"
+    # Ensure the correct neo4j version was downloaded
+    assert_raises \
+      "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$version-unix.tar.gz" 0
+
+    # Ensure neo4j exists
+    assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
+
+    # Ensure the correct ports were set
+    assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
+    assert_raises \
+      "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+
+  done
+
+  assert_end CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters
+}
+tests+=('CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters')
+
+
+CreateAnInstanceCorrectlyWithEveryVersion() {
+
+  for version in "${versions[@]}"
+  do
+    setup
+
+    config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+    # Create the instance
+    assert "./ineo create -p8484 -s9495 -v $version twitter" \
+"
+  The instance twitter was created successfully
+
+"
+    # Ensure the correct neo4j version was downloaded
+    assert_raises \
+      "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$version-unix.tar.gz" 0
+
+    # Ensure neo4j exists
+    assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
+
+    # Ensure the correct ports were set
+    assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
+    assert_raises \
+      "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+
+  done
+
+  assert_end CreateAnInstanceCorrectlyWithEveryVersion
+}
+tests+=('CreateAnInstanceCorrectlyWithEveryVersion')
+
+
+CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   setup
 
-  port=${params[i+1]}
-  ssl_port=${params[i+2]}
-  version=${params[i+3]}
-  config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+  # Truncate a bad version, so is possible a bad tar
+  rm -fr bad_tar_for_test
+  mkdir bad_tar_for_test
+
+  cp fake_neo4j_host/neo4j-community-${LAST_VERSION}-unix.tar.gz bad_tar_for_test
+
+  platform=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+  if [ $platform = 'darwin' ]; then
+    command_truncate=gtruncate
+  elif [ $platform = 'linux' ]; then
+    command_truncate=truncate
+  fi
+
+  $command_truncate -s20MB bad_tar_for_test/neo4j-community-${LAST_VERSION}-unix.tar.gz
+
+  # Change the NEO4J_HOSTNAME for test to download the bad tar
+  export NEO4J_HOSTNAME="file:///$(pwd)/bad_tar_for_test"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-  # Create the instance
-  assert "./ineo create ${params[i]}" \
+  # Create the instance with a bad tar version
+  assert "./ineo create -v$LAST_VERSION twitter" \
 "
-The instance twitter was created successfully
+  ERROR: The tar file 'neo4j-community-$LAST_VERSION-unix.tar.gz' can't be extracted!
+
+  Try run the command 'create' with the -d option to download the tar file again
+
+"
+  # Ensure the bad tar version of neo4j was downloaded
+  assert_raises \
+    "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$LAST_VERSION-unix.tar.gz" 0
+
+  # Ensure the instance doesn't exists
+  assert_raises "test -d $(pwd)/ineo_for_test/instances/twitter" 1
+
+  # The bad tar now must be good
+  rm -fr bad_tar_for_test
+  mkdir bad_tar_for_test
+
+  cp fake_neo4j_host/neo4j-community-${LAST_VERSION}-unix.tar.gz bad_tar_for_test
+
+  # Create the instance with a good tar version
+  assert "./ineo create -d -v$LAST_VERSION twitter" \
+"
+  The instance twitter was created successfully
 
 "
   # Ensure the correct neo4j version was downloaded
   assert_raises \
-    "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$version-unix.tar.gz" 0
+    "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$LAST_VERSION-unix.tar.gz" 0
 
   # Ensure neo4j exists
   assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
-  # Ensure the correct ports were set
-  assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
+  # Restore the correct NEO4J_HOSTNAME for test
+  export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
+
+  assert_end CreateAnInstanceWithABadTarAndTryAgainWithDOption
+}
+tests+=('CreateAnInstanceWithABadTarAndTryAgainWithDOption')
+
+
+CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  # Create the intance directory by hand
+  assert_raises "mkdir $(pwd)/ineo_for_test/instances/twitter"
+
+  # Try create the instance
+  assert "./ineo create twitter" \
+"
+  ERROR: A directory for the instance 'twitter' already exists!
+
+  Maybe the instance already was created or try run the command 'install' with the -f option to force the installation
+
+"
+
+  # Ensure the bad tar version of neo4j was downloaded
   assert_raises \
-    "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+    "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-2.2.2-unix.tar.gz" 0
 
-done
+  # Ensure the instance directory is empty yet
+  assert_raises "test $(ls -A ineo_for_test/instances/twitter)" 1
 
-assert_end Create an instance correctly with different variations of parameters
-
-# Create an instance with a bad tar and try again with -d option
-# ------------------------------------------------------------------------------
-setup
-
-# Truncate a bad version, so is possible a bad tar
-rm -fr bad_tar_for_test
-mkdir bad_tar_for_test
-
-cp fake_neo4j_host/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz bad_tar_for_test
-
-platform=$(uname -s | tr '[:upper:]' '[:lower:]')
-
-if [ $platform = 'darwin' ]; then
-  command_truncate=gtruncate
-elif [ $platform = 'linux' ]; then
-  command_truncate=truncate
-fi
-
-$command_truncate -s20MB bad_tar_for_test/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz
-
-# Change the NEO4J_HOSTNAME for test to download the bad tar
-export NEO4J_HOSTNAME="file:///$(pwd)/bad_tar_for_test"
-
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-# Create the instance with a bad tar version
-assert "./ineo create -v$DEFAULT_VERSION twitter" \
+  # Create the instance with -f option
+  assert "./ineo create -f twitter" \
 "
-ERROR: The tar file 'neo4j-community-$DEFAULT_VERSION-unix.tar.gz' can't be extracted!
-
-Try run the command 'create' with the -d option to download the tar file again
-
-"
-# Ensure the bad tar version of neo4j was downloaded
-assert_raises \
-  "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$DEFAULT_VERSION-unix.tar.gz" 0
-
-# Ensure the instance doesn't exists
-assert_raises "test -d $(pwd)/ineo_for_test/instances/twitter" 1
-
-# The bad tar now must be good
-rm -fr bad_tar_for_test
-mkdir bad_tar_for_test
-
-cp fake_neo4j_host/neo4j-community-${DEFAULT_VERSION}-unix.tar.gz bad_tar_for_test
-
-# Create the instance with a good tar version
-assert "./ineo create -d -v$DEFAULT_VERSION twitter" \
-"
-The instance twitter was created successfully
-
-"
-# Ensure the correct neo4j version was downloaded
-assert_raises \
-  "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$DEFAULT_VERSION-unix.tar.gz" 0
-
-# Ensure neo4j exists
-assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
-
-# Restore the correct NEO4J_HOSTNAME for test
-export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
-
-assert_end Create an instance with a bad tar and try again with -d option
-
-# Create an instance on a existing directory and try again with -f option
-# ------------------------------------------------------------------------------
-setup
-
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-# Create the intance directory by hand
-assert_raises "mkdir $(pwd)/ineo_for_test/instances/twitter"
-
-# Try create the instance
-assert "./ineo create twitter" \
-"
-ERROR: A directory for the instance 'twitter' already exists!
-
-Maybe the instance already was created or try run the command 'install' with the -f option to force the installation
+  The instance twitter was created successfully
 
 "
 
-# Ensure the bad tar version of neo4j was downloaded
-assert_raises \
-  "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-2.2.2-unix.tar.gz" 0
+  # Ensure neo4j exists
+  assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
-# Ensure the instance directory is empty yet
-assert_raises "test $(ls -A ineo_for_test/instances/twitter)" 1
+  assert_end CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption
+}
+tests+=('CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption')
 
-# Create the instance with -f option
-assert "./ineo create -f twitter" \
+
+CreateAnInstanceWithoutTheRequiredParameter() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create" 1
+  assert "./ineo create" \
 "
-The instance twitter was created successfully
+  ERROR: create requires an instance name!
 
-"
-
-# Ensure neo4j exists
-assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
-
-assert_end Create an instance with on a existing directory and try again with -f option
-
-# Create an instance without the required parameter
-# ------------------------------------------------------------------------------
-setup
-
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-assert_raises "./ineo create" 1
-assert "./ineo create" \
-"
-ERROR: create requires an instance name!
-
-For help about the command 'create' type:
+  For help about the command 'create' type:
   ineo help create
 "
 
-assert_end Create an instance without the required parameter
+  assert_end CreateAnInstanceWithoutTheRequiredParameter
+}
+tests+=('CreateAnInstanceWithoutTheRequiredParameter')
+
 
 # ==============================================================================
 # TEST INSTANCE ACTIONS (START, STATUS, RESTART, STOP)
@@ -607,895 +689,976 @@ assert_end Create an instance without the required parameter
 
 actions=('start' 'status' 'restart' 'stop')
 
-# Actions with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+ActionsWithIncorrectParameters() {
+  setup
 
-params=(
-  "-x" 'x'
-  "-x -y" 'x'
-  "-x twitter" 'x'
-  "facebook twitter" 'twitter'
-  "-x facebook twitter" 'x'
-)
+  params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "facebook twitter" 'twitter'
+    "-x facebook twitter" 'x'
+  )
 
-for ((i=0; i<${#actions[*]}; i+=1)); do
-  for ((j=0; j<${#params[*]}; j+=2)); do
-    assert_raises "./ineo ${actions[i]} ${params[j]}" 1
-    assert        "./ineo ${actions[i]} ${params[j]}" \
+  for ((i=0; i<${#actions[*]}; i+=1)); do
+    for ((j=0; j<${#params[*]}; j+=2)); do
+      assert_raises "./ineo ${actions[i]} ${params[j]}" 1
+      assert        "./ineo ${actions[i]} ${params[j]}" \
 "
-ERROR: Invalid argument or option: ${params[j+1]}!
+  ERROR: Invalid argument or option: ${params[j+1]}!
 
-For help about the command '${actions[i]}' type:
+  For help about the command '${actions[i]}' type:
   ineo help ${actions[i]}
 "
+    done
   done
-done
 
-assert_end Actions with incorrect parameters
+  assert_end ActionsWithIncorrectParameters
+}
+tests+=('ActionsWithIncorrectParameters')
 
-# Actions on a non-existent instance
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+ActionsOnANonExistentInstance() {
+  setup
 
-for ((i=0; i<${#actions[*]}; i+=1)); do
-  assert_raises "./ineo ${actions[i]} twitter" 1
-  assert        "./ineo ${actions[i]} twitter" \
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  for ((i=0; i<${#actions[*]}; i+=1)); do
+    assert_raises "./ineo ${actions[i]} twitter" 1
+    assert        "./ineo ${actions[i]} twitter" \
 "
-ERROR: There is not an instance with the name 'twitter'!
+  ERROR: There is not an instance with the name 'twitter'!
 
-You can create an instance with the command 'ineo create twitter'
+  You can create an instance with the command 'ineo create twitter'
 "
-done
+  done
 
-assert_end Actions on a non-existent instance
+  assert_end ActionsOnANonExistentInstance
+}
+tests+=('ActionsOnANonExistentInstance')
 
-# Actions on a not properly installed instance
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+ActionsOnANotProperlyInstalledInstance() {
+  setup
 
-mkdir ineo_for_test/instances/twitter
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-for ((i=0; i<${#actions[*]}; i+=1)); do
-  assert_raises "./ineo ${actions[i]} twitter" 1
-  assert        "./ineo ${actions[i]} twitter" \
+  mkdir ineo_for_test/instances/twitter
+
+  for ((i=0; i<${#actions[*]}; i+=1)); do
+    assert_raises "./ineo ${actions[i]} twitter" 1
+    assert        "./ineo ${actions[i]} twitter" \
 "
-ERROR: The instance 'twitter' seems that is not properly installed!
+  ERROR: The instance 'twitter' seems that is not properly installed!
 
-You can recreate the instance with the command 'ineo create -f twitter'
+  You can recreate the instance with the command 'ineo create -f twitter'
 "
-done
+  done
 
-assert_end Actions on a not properly installed instance
+  assert_end ActionsOnANotProperlyInstalledInstance
+}
+tests+=('ActionsOnANotProperlyInstalledInstance')
 
-# Execute actions correctly
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+ExecuteActionsCorrectly() {
+  for version in "${versions[@]}"
+  do
+    setup
 
-assert_raises "./ineo create twitter" 0
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-# start
-assert_raises "./ineo start twitter" 0
-pid=$(get_instance_pid twitter)
-assert_run_pid $pid
+    assert_raises "./ineo create -v $version twitter" 0
 
-# status running
-assert "./ineo status twitter" \
+    # start
+    assert_raises "./ineo start twitter" 0
+    set_instance_pid twitter
+    assert_run_pid $pid
+
+    # status running
+    assert "./ineo status twitter" \
 "
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is running at pid $pid
 "
 
-# restart
-assert_raises "./ineo restart twitter" 0
-pid=$(get_instance_pid twitter)
-assert_run_pid $pid
+    # restart
+    assert_raises "./ineo restart twitter" 0
+    set_instance_pid twitter
+    assert_run_pid $pid
 
-# status running
-assert "./ineo status twitter" \
+    # status running
+    assert "./ineo status twitter" \
 "
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is running at pid $pid
 "
 
-# stop
-assert_raises "./ineo stop twitter" 0
-assert_not_run_pid $pid
+    # stop
+    assert_raises "./ineo stop twitter" 0
+    assert_not_run_pid $pid
 
-# status not running
-assert "./ineo status twitter" \
+    # status not running
+    assert "./ineo status twitter" \
 "
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is not running
 "
+  done
+  assert_end ExecuteActionsCorrectly
+}
+tests+=('ExecuteActionsCorrectly')
 
-assert_end Execute actions correctly
 
-# Execute actions on various instances correctly
-# ------------------------------------------------------------------------------
-setup
+ExecuteActionsOnVariousInstancesCorrectly() {
+  for version in "${versions[@]}"
+  do
+    setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-# Test confirming
-assert_raises "./ineo create -p7474 twitter" 0
-assert_raises "./ineo create -p7476 facebook" 0
+    # Test confirming
+    assert_raises "./ineo create -p7474 -v $version twitter" 0
+    assert_raises "./ineo create -p7476 -v $version facebook" 0
 
-# start
-assert_raises "echo -ne 'y\n' | ./ineo start" 0
+    # start
+    assert_raises "echo -ne 'y\n' | ./ineo start" 0
 
-pid_twitter=$(get_instance_pid twitter)
-assert_run_pid $pid_twitter
+    set_instance_pid twitter
+    pid_twitter=$pid
+    assert_run_pid $pid_twitter
 
-pid_facebook=$(get_instance_pid facebook)
-assert_run_pid $pid_facebook
+    set_instance_pid facebook
+    pid_facebook=$pid
+    assert_run_pid $pid_facebook
 
-# status running
-assert "./ineo status" \
+    # status running
+    assert "./ineo status" \
 "
-> status 'facebook'
+  status 'facebook'
   Neo4j Server is running at pid $pid_facebook
 
-
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is running at pid $pid_twitter
 "
 
-# restart
-assert_raises "echo -ne 'y\n' | ./ineo restart" 0
+    # restart
+    assert_raises "echo -ne 'y\n' | ./ineo restart" 0
 
-pid_twitter=$(get_instance_pid twitter)
-assert_run_pid $pid_twitter
+    set_instance_pid twitter
+    pid_twitter=$pid
+    assert_run_pid $pid_twitter
 
-pid_facebook=$(get_instance_pid facebook)
-assert_run_pid $pid_facebook
+    set_instance_pid facebook
+    pid_facebook=$pid
+    assert_run_pid $pid_facebook
 
-# status running
-assert "./ineo status" \
+    # status running
+    assert "./ineo status" \
 "
-> status 'facebook'
+  status 'facebook'
   Neo4j Server is running at pid $pid_facebook
 
-
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is running at pid $pid_twitter
 "
 
-# stop
-assert_raises "echo -ne 'y\n' | ./ineo stop" 0
-assert_not_run_pid $pid_twitter
-assert_not_run_pid $pid_facebook
+    # stop
+    assert_raises "echo -ne 'y\n' | ./ineo stop" 0
+    assert_not_run_pid $pid_twitter
+    assert_not_run_pid $pid_facebook
 
-# status not running
-assert "./ineo status" \
+    # status not running
+    assert "./ineo status" \
 "
-> status 'facebook'
+  status 'facebook'
   Neo4j Server is not running
 
-
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is not running
 "
 
-# Test forcing with -q
+    # Test forcing with -q
 
-# start
-assert_raises "./ineo start -q" 0
+    # start
+    assert_raises "./ineo start -q" 0
 
-pid_twitter=$(get_instance_pid twitter)
-assert_run_pid $pid_twitter
+    set_instance_pid twitter
+    pid_twitter=$pid
+    assert_run_pid $pid_twitter
 
-pid_facebook=$(get_instance_pid facebook)
-assert_run_pid $pid_facebook
+    set_instance_pid facebook
+    pid_facebook=$pid
+    assert_run_pid $pid_facebook
 
-# status running
-assert "./ineo status" \
+    # status running
+    assert "./ineo status" \
 "
-> status 'facebook'
+  status 'facebook'
   Neo4j Server is running at pid $pid_facebook
 
-
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is running at pid $pid_twitter
 "
 
-# restart
-assert_raises "./ineo restart -q" 0
+    # restart
+    assert_raises "./ineo restart -q" 0
 
-pid_twitter=$(get_instance_pid twitter)
-assert_run_pid $pid_twitter
+    set_instance_pid twitter
+    pid_twitter=$pid
+    assert_run_pid $pid_twitter
 
-pid_facebook=$(get_instance_pid facebook)
-assert_run_pid $pid_facebook
+    set_instance_pid facebook
+    pid_facebook=$pid
+    assert_run_pid $pid_facebook
 
-# status running
-assert "./ineo status" \
+    # status running
+    assert "./ineo status" \
 "
-> status 'facebook'
+  status 'facebook'
   Neo4j Server is running at pid $pid_facebook
 
-
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is running at pid $pid_twitter
 "
 
-assert_raises "./ineo stop -q" 0
-assert_not_run_pid $pid_twitter
-assert_not_run_pid $pid_facebook
+    assert_raises "./ineo stop -q" 0
+    assert_not_run_pid $pid_twitter
+    assert_not_run_pid $pid_facebook
 
-# status not running
-assert "./ineo status" \
+    # status not running
+    assert "./ineo status" \
 "
-> status 'facebook'
+  status 'facebook'
   Neo4j Server is not running
 
-
-> status 'twitter'
+  status 'twitter'
   Neo4j Server is not running
 "
+  done
+  assert_end ExecuteActionsOnVariousInstancesCorrectly
+}
+tests+=('ExecuteActionsOnVariousInstancesCorrectly')
 
-assert_end Execute actions on various instances correctly
 
 # ==============================================================================
 # TEST INSTANCES
 # ==============================================================================
 
-# Instances with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+InstancesWithIncorrectParameters() {
+  setup
 
-params=(
-  'wrong'
-  '-q'
-)
+  params=(
+    'wrong'
+    '-q'
+  )
 
-for ((i=0; i<${#params[*]}; i+=1))
-do
-  assert_raises "./ineo instances ${params[i]}" 1
-  assert        "./ineo instances ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=1))
+  do
+    assert_raises "./ineo instances ${params[i]}" 1
+    assert        "./ineo instances ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i]}!
+  ERROR: Invalid argument or option: ${params[i]}!
 
-For help about the command 'instances' type:
+  For help about the command 'instances' type:
   ineo help instances
 "
-done
+  done
 
-assert_end Instances with incorrect parameters
+  assert_end InstancesWithIncorrectParameters
+}
+tests+=('InstancesWithIncorrectParameters')
 
-# Instances correctly
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+InstancesCorrectly() {
+  for version in "${versions[@]}"
+  do
+    setup
 
-assert_raises "./ineo create -p7474 -s8484 twitter" 0
-assert_raises "./ineo create -p7575 -s8585 facebook" 0
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-assert_raises "./ineo instances" 0
-assert        "./ineo instances" \
+    assert_raises "./ineo create -p7474 -s8484 -v $version twitter" 0
+    assert_raises "./ineo create -p7575 -s8585 -v $version facebook" 0
+
+    assert_raises "./ineo instances" 0
+    assert        "./ineo instances" \
 "
-> instance 'facebook'
-  VERSION: 2.2.2
-  PATH:    $INEO_HOME/instances/facebook
-  PORT:    7575
-  HTTPS:   8585
+  > instance 'facebook'
+    VERSION: $version
+    PATH:    $INEO_HOME/instances/facebook
+    PORT:    7575
+    HTTPS:   8585
 
-> instance 'twitter'
-  VERSION: 2.2.2
-  PATH:    $INEO_HOME/instances/twitter
-  PORT:    7474
-  HTTPS:   8484
+  > instance 'twitter'
+    VERSION: $version
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   8484
 "
+  done
 
-assert_end Instances correctly
+  assert_end InstancesCorrectly
+}
+tests+=('InstancesCorrectly')
+
 
 # ==============================================================================
 # TEST VERSIONS
 # ==============================================================================
 
-# Versions with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+VersionsWithIncorrectParameters() {
+  setup
 
-params=(
-  'wrong'
-  '-q'
-)
+  params=(
+    'wrong'
+    '-q'
+  )
 
-for ((i=0; i<${#params[*]}; i+=1))
-do
-  assert_raises "./ineo versions ${params[i]}" 1
-  assert        "./ineo versions ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=1))
+  do
+    assert_raises "./ineo versions ${params[i]}" 1
+    assert        "./ineo versions ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i]}!
+  ERROR: Invalid argument or option: ${params[i]}!
 
-For help about the command 'versions' type:
+  For help about the command 'versions' type:
   ineo help versions
 "
-done
+  done
 
-assert_end Versions with incorrect parameters
+  assert_end VersionsWithIncorrectParameters
+}
+tests+=('VersionsWithIncorrectParameters')
 
-# Versions correctly
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+VersionsCorrectly() {
+  setup
 
-assert_raises "./ineo versions" 0
-assert        "./ineo versions" \
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo versions" 0
+  assert        "./ineo versions" \
 "
-The Neo4J versions available at Jun 3, 2015:
-1.9.9
-2.0.4
-2.1.8
-2.2.2
+  The Neo4J versions available at Jun 3, 2015:
+  1.9.9
+  2.0.4
+  2.1.8
+  2.2.2
 
-More information about Neo4j releases in: http://neo4j.com/download/other-releases
+  More information about Neo4j releases in: http://neo4j.com/download/other-releases
 
 "
-assert_end Versions correctly
+  assert_end VersionsCorrectly
+}
+tests+=('VersionsCorrectly')
 
 # ==============================================================================
 # TEST DESTROY
 # ==============================================================================
 
-# Destroy with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+DestroyWithIncorrectParameters() {
+  setup
 
-params=(
-  "-x" 'x'
-  "-x -y" 'x'
-  "-x twitter" 'x'
-  "facebook twitter" 'twitter'
-  "-x facebook twitter" 'x'
-)
+  params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "facebook twitter" 'twitter'
+    "-x facebook twitter" 'x'
+  )
 
-for ((i=0; i<${#params[*]}; i+=2)); do
-  assert_raises "./ineo destroy ${params[i]}" 1
-  assert        "./ineo destroy ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo destroy ${params[i]}" 1
+    assert        "./ineo destroy ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i+1]}!
+  ERROR: Invalid argument or option: ${params[i+1]}!
 
-For help about the command 'destroy' type:
+  For help about the command 'destroy' type:
   ineo help destroy
 "
-done
+  done
 
-assert_end Destroy with incorrect parameters
+  assert_end DestroyWithIncorrectParameters
+}
+tests+=('DestroyWithIncorrectParameters')
 
-# Destroy an instance without the required parameter
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+DestroyAnInstanceWithoutTheRequiredParameter() {
+  setup
 
-assert_raises "./ineo destroy" 1
-assert "./ineo destroy" \
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo destroy" 1
+  assert "./ineo destroy" \
 "
-ERROR: destroy requires an instance name!
+  ERROR: destroy requires an instance name!
 
-For help about the command 'destroy' type:
+  For help about the command 'destroy' type:
   ineo help destroy
 "
 
-assert_end Destroy an instance without the required parameter
+  assert_end DestroyAnInstanceWithoutTheRequiredParameter
+}
+tests+=('DestroyAnInstanceWithoutTheRequiredParameter')
 
-# Destroy a non-existent instance
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+DestroyANonExistentInstance() {
+  setup
 
-assert_raises "./ineo destroy twitter" 1
-assert        "./ineo destroy twitter" \
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo destroy twitter" 1
+  assert        "./ineo destroy twitter" \
 "
-ERROR: There is not an instance with the name 'twitter'!
+  ERROR: There is not an instance with the name 'twitter'!
 
-Use 'ineo instances' to list the instances installed
-"
-
-assert_end Destroy a non-existent instance
-
-# Destroy correctly
-# ------------------------------------------------------------------------------
-setup
-
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-# Test confirming without an instance running
-
-assert_raises "./ineo create twitter" 0
-
-assert_raises "echo -ne 'y\n' | ./ineo destroy twitter" 0
-
-assert_raises "./ineo create twitter" 0
-assert "echo -ne 'y\n' | ./ineo destroy twitter" \
-"
-WARNING: Destroying the instance 'twitter' will remove all data for this instance!
-
-
-
-The instance 'twitter' was successfully destroyed.
-
+  Use 'ineo instances' to list the instances installed
 "
 
-# Test confirming with an instance running
+  assert_end DestroyANonExistentInstance
+}
+tests+=('DestroyANonExistentInstance')
 
-assert_raises "./ineo create twitter" 0
-assert_raises "./ineo start twitter" 0
 
-pid=$(get_instance_pid twitter)
-assert_run_pid $pid
+DestroyCorrectly() {
+  for version in "${versions[@]}"
+  do
+    setup
 
-assert_raises "echo -ne 'y\ny\n' | ./ineo destroy twitter" 0
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-assert_not_run_pid $pid
+    # Test confirming without an instance running
 
-# Test forcing without an instance running
+    assert_raises "./ineo create -v $version twitter" 0
 
-assert_raises "./ineo create twitter" 0
+    assert_raises "echo -ne 'y\n' | ./ineo destroy twitter" 0
 
-assert_raises "./ineo destroy -f twitter" 0
-
-assert_raises "./ineo create twitter" 0
-assert "./ineo destroy -f twitter" \
+    assert_raises "./ineo create -v $version twitter" 0
+    assert "echo -ne 'y\n' | ./ineo destroy twitter" \
 "
-The instance 'twitter' was successfully destroyed.
+  WARNING: Destroying the instance 'twitter' will remove all data for this instance!
+
+
+
+  The instance 'twitter' was successfully destroyed.
 
 "
 
-# Test forcing with an instance running
+    # Test confirming with an instance running
 
-assert_raises "./ineo create twitter" 0
-assert_raises "./ineo start twitter" 0
+    assert_raises "./ineo create -v $version twitter" 0
+    assert_raises "./ineo start twitter" 0
 
-pid=$(get_instance_pid twitter)
-assert_run_pid $pid
+    set_instance_pid twitter
+    assert_run_pid $pid
 
-assert_raises "./ineo destroy -f twitter" 0
+    assert_raises "echo -ne 'y\ny\n' | ./ineo destroy twitter" 0
 
-assert_not_run_pid $pid
+    assert_not_run_pid $pid
 
-assert_end Destroy correctly
+    # Test forcing without an instance running
+
+    assert_raises "./ineo create -v $version twitter" 0
+
+    assert_raises "./ineo destroy -f twitter" 0
+
+    assert_raises "./ineo create -v $version twitter" 0
+    assert "./ineo destroy -f twitter" \
+"
+  The instance 'twitter' was successfully destroyed.
+
+"
+
+    # Test forcing with an instance running
+
+    assert_raises "./ineo create -v $version twitter" 0
+    assert_raises "./ineo start twitter" 0
+
+    set_instance_pid twitter
+    assert_run_pid $pid
+
+    assert_raises "./ineo destroy -f twitter" 0
+
+    assert_not_run_pid $pid
+  done
+  assert_end DestroyCorrectly
+}
+tests+=('DestroyCorrectly')
+
 
 # ==============================================================================
 # TEST SET-PORT
 # ==============================================================================
 
-# Set-port with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+SetPortWithIncorrectParameters() {
+  setup
 
-params=(
-  "-x" 'x'
-  "-x -y" 'x'
-  "-x twitter" 'x'
-  "facebook 9898 twitter" 'twitter'
-  "-x facebook 9898" 'x'
-)
+  params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "facebook 9898 twitter" 'twitter'
+    "-x facebook 9898" 'x'
+  )
 
-for ((i=0; i<${#params[*]}; i+=2)); do
-  assert_raises "./ineo set-port ${params[i]}" 1
-  assert        "./ineo set-port ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo set-port ${params[i]}" 1
+    assert        "./ineo set-port ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i+1]}!
+  ERROR: Invalid argument or option: ${params[i+1]}!
 
-For help about the command 'set-port' type:
+  For help about the command 'set-port' type:
   ineo help set-port
 "
-done
+  done
 
-assert_end Set-port with incorrect parameters
+  assert_end SetPortWithIncorrectParameters
+}
+tests+=('SetPortWithIncorrectParameters')
 
-# Set-port without the require parameters
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+SetPortWithoutTheRequireParameters() {
+  setup
 
-assert_raises "./ineo create twitter" 0
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-assert_raises "./ineo set-port" 1
-assert        "./ineo set-port" \
+  assert_raises "./ineo create twitter" 0
+
+  assert_raises "./ineo set-port" 1
+  assert        "./ineo set-port" \
 "
-ERROR: set-port requires an instance name and a port number!
+  ERROR: set-port requires an instance name and a port number!
 
-For help about the command 'set-port' type:
-  ineo help set-port
-"
-
-assert_raises "./ineo set-port twitter" 1
-assert        "./ineo set-port twitter" \
-"
-ERROR: set-port requires an instance name and a port number!
-
-For help about the command 'set-port' type:
+  For help about the command 'set-port' type:
   ineo help set-port
 "
 
-assert_end Set-port without the require parameters
-
-# Set-port on a non-existent instance
-# ------------------------------------------------------------------------------
-setup
-
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-assert_raises "./ineo set-port twitter 7575" 1
-assert        "./ineo set-port twitter 7474" \
+  assert_raises "./ineo set-port twitter" 1
+  assert        "./ineo set-port twitter" \
 "
-ERROR: There is not an instance with the name 'twitter' or is not properly installed!
+  ERROR: set-port requires an instance name and a port number!
 
-Use 'ineo instances' to list the instances installed
-"
-
-assert_end Set-port on a non-existent instance
-
-# Set-port with an incorrect number port
-# ------------------------------------------------------------------------------
-setup
-
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-assert_raises "./ineo create twitter" 0
-
-assert_raises "./ineo set-port twitter aaa" 1
-assert        "./ineo set-port twitter aaa" \
-"
-ERROR: The port must be a positive integer number!
-
-For help about the command 'set-port' type:
+  For help about the command 'set-port' type:
   ineo help set-port
 "
 
-assert_end Set-port with an incorrect number port
+  assert_end SetPortWithoutTheRequireParameters
+}
+tests+=('SetPortWithoutTheRequireParameters')
 
-# Set-port with an incorrect out of range port
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+SetPortOnANonExistentInstance() {
+  setup
 
-assert_raises "./ineo create twitter" 0
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-assert_raises "./ineo set-port twitter 65536" 1
-assert        "./ineo set-port twitter 65536" \
+  assert_raises "./ineo set-port twitter 7575" 1
+  assert        "./ineo set-port twitter 7474" \
 "
-ERROR: The port must be a number between 1 and 65535!
+  ERROR: There is not an instance with the name 'twitter' or is not properly installed!
 
-For help about the command 'set-port' type:
+  Use 'ineo instances' to list the instances installed
+"
+
+  assert_end SetPortOnANonExistentInstance
+}
+tests+=('SetPortOnANonExistentInstance')
+
+
+SetPortWithAnIncorrectNumberPort() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+
+  assert_raises "./ineo set-port twitter aaa" 1
+  assert        "./ineo set-port twitter aaa" \
+"
+  ERROR: The port must be a positive integer number!
+
+  For help about the command 'set-port' type:
   ineo help set-port
 "
 
-assert_raises "./ineo set-port twitter 0" 1
-assert        "./ineo set-port twitter 0" \
-"
-ERROR: The port must be a number between 1 and 65535!
+  assert_end SetPortWithAnIncorrectNumberPort
+}
+tests+=('SetPortWithAnIncorrectNumberPort')
 
-For help about the command 'set-port' type:
+
+SetPortWithAnIncorrectOutOfRangePort() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+
+  assert_raises "./ineo set-port twitter 65536" 1
+  assert        "./ineo set-port twitter 65536" \
+"
+  ERROR: The port must be a number between 1 and 65535!
+
+  For help about the command 'set-port' type:
   ineo help set-port
 "
 
-assert_end Set-port with an incorrect out of range port
-
-# Set-port correctly
-# ------------------------------------------------------------------------------
-setup
-
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-# Test http port
-assert_raises "./ineo create twitter" 0
-
-assert_raises "./ineo set-port twitter 1" 0
-assert        "./ineo set-port twitter 1" \
+  assert_raises "./ineo set-port twitter 0" 1
+  assert        "./ineo set-port twitter 0" \
 "
-The http port was successfully changed to '1'."
+  ERROR: The port must be a number between 1 and 65535!
 
-assert_raises "./ineo set-port twitter 65535" 0
-assert        "./ineo set-port twitter 65535" \
+  For help about the command 'set-port' type:
+  ineo help set-port
 "
-The http port was successfully changed to '65535'."
 
-# Test https port
-assert_raises "./ineo set-port -s twitter 1" 0
-assert        "./ineo set-port -s twitter 1" \
+  assert_end SetPortWithAnIncorrectOutOfRangePort
+}
+tests+=('SetPortWithAnIncorrectOutOfRangePort')
+
+
+SetPortCorrectly() {
+  for version in "${versions[@]}"
+  do
+    setup
+
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+    # Test http port
+    assert_raises "./ineo create -v $version twitter" 0
+
+    assert_raises "./ineo set-port twitter 1" 0
+    assert        "./ineo set-port twitter 1" \
 "
-The https port was successfully changed to '1'."
-
-assert_raises "./ineo set-port -s twitter 65535" 0
-assert        "./ineo set-port -s twitter 65535" \
+  The http port was successfully changed to '1'.
 "
-The https port was successfully changed to '65535'."
 
-assert_end Set-port correctly
+    assert_raises "./ineo set-port twitter 65535" 0
+    assert        "./ineo set-port twitter 65535" \
+"
+  The http port was successfully changed to '65535'.
+"
+
+  # Test https port
+    assert_raises "./ineo set-port -s twitter 1" 0
+    assert        "./ineo set-port -s twitter 1" \
+"
+  The https port was successfully changed to '1'.
+"
+
+    assert_raises "./ineo set-port -s twitter 65535" 0
+    assert        "./ineo set-port -s twitter 65535" \
+"
+  The https port was successfully changed to '65535'.
+"
+  done
+  assert_end SetPortCorrectly
+}
+tests+=('SetPortCorrectly')
+
 
 # ==============================================================================
 # TEST CLEAR-DATA
 # ==============================================================================
 
-# Clear-data with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+ClearDataWithIncorrectParameters() {
+  setup
 
-params=(
-  "-x" 'x'
-  "-x -y" 'x'
-  "-x twitter" 'x'
-  "facebook twitter" 'twitter'
-  "-x facebook" 'x'
-)
+  params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "facebook twitter" 'twitter'
+    "-x facebook" 'x'
+  )
 
-for ((i=0; i<${#params[*]}; i+=2)); do
-  assert_raises "./ineo delete-db ${params[i]}" 1
-  assert        "./ineo delete-db ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo delete-db ${params[i]}" 1
+    assert        "./ineo delete-db ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i+1]}!
+  ERROR: Invalid argument or option: ${params[i+1]}!
 
-For help about the command 'delete-db' type:
+  For help about the command 'delete-db' type:
   ineo help delete-db
 "
-done
+  done
 
-assert_end Clear-data with incorrect parameters
+  assert_end ClearDataWithIncorrectParameters
+}
+tests+=('ClearDataWithIncorrectParameters')
 
-# Clear-data without the require parameters
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+ClearDataWithoutTheRequireParameters() {
+  setup
 
-assert_raises "./ineo create twitter" 0
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-assert_raises "./ineo delete-db" 1
-assert        "./ineo delete-db" \
+  assert_raises "./ineo create twitter" 0
+
+  assert_raises "./ineo delete-db" 1
+  assert        "./ineo delete-db" \
 "
-ERROR: delete-db requires an instance name!
+  ERROR: delete-db requires an instance name!
 
-For help about the command 'delete-db' type:
+  For help about the command 'delete-db' type:
   ineo help delete-db
 "
 
-assert_end Clear-data without the require parameters
+  assert_end ClearDataWithoutTheRequireParameters
+}
+tests+=('ClearDataWithoutTheRequireParameters')
 
-# Clear-data on a non-existent instance
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+ClearDataOnANonExistentInstance() {
+  setup
 
-assert_raises "./ineo delete-db twitter" 1
-assert        "./ineo delete-db twitter" \
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo delete-db twitter" 1
+  assert        "./ineo delete-db twitter" \
 "
-ERROR: There is not an instance with the name 'twitter' or is not properly installed!
+  ERROR: There is not an instance with the name 'twitter' or is not properly installed!
 
-Use 'ineo instances' to list the instances installed
-"
-
-assert_end Clear-data on a non-existent instance
-
-# Clear-data correctly
-# ------------------------------------------------------------------------------
-setup
-
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-# Test confirming without an instance running
-
-assert_raises "./ineo create twitter" 0
-# Create a fake directory
-assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
-
-assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
-
-# Create a fake directory
-assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
-
-assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
-"
-WARNING: delete-db on the instance 'twitter' will remove all data for this instance!
-
-
-The data for the instance 'twitter' was successfully removed.
-
+  Use 'ineo instances' to list the instances installed
 "
 
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+  assert_end ClearDataOnANonExistentInstance
+}
+tests+=('ClearDataOnANonExistentInstance')
 
-# Test confirming with an instance running
 
-# Create a fake directory
-assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+ClearDataCorrectly() {
+  for version in "${versions[@]}"
+  do
+    setup
 
-assert_raises "./ineo start twitter" 0
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-pid=$(get_instance_pid twitter)
-assert_run_pid $pid
+    # Test confirming without an instance running
 
-assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
+    assert_raises "./ineo create -v $version twitter" 0
+    # Create a fake directory
+    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+    assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
 
-assert_not_run_pid $pid
+    # Create a fake directory
+    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-# Test forcing without an instance running
-
-# Create a fake directory
-assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
-
-assert_raises "./ineo delete-db -f twitter" 0
-
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
-
-# Create a fake directory
-assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
-
-assert "./ineo delete-db -f twitter" \
+    assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
-The data for the instance 'twitter' was successfully removed.
+  WARNING: delete-db on the instance 'twitter' will remove all data for this instance!
+
+
+  The data for the instance 'twitter' was successfully removed.
 
 "
 
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-# Test forcing with an instance running
+    # Test confirming with an instance running
 
-# Create a fake directory
-assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+    # Create a fake directory
+    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-assert_raises "./ineo start twitter" 0
+    assert_raises "./ineo start twitter" 0
 
-pid=$(get_instance_pid twitter)
-assert_run_pid $pid
+    set_instance_pid twitter
+    assert_run_pid $pid
 
-assert_raises "./ineo delete-db -f twitter" 0
+    assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
 
-assert_not_run_pid $pid
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+    assert_not_run_pid $pid
 
-assert_end Clear-data correctly
+    # Test forcing without an instance running
 
-# Clear-data correctly without a database file
-# ------------------------------------------------------------------------------
-setup
+    # Create a fake directory
+    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+    assert_raises "./ineo delete-db -f twitter" 0
 
-# Test confirming without an instance running
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-assert_raises "./ineo create twitter" 0
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+    # Create a fake directory
+    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
-
-assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
+    assert "./ineo delete-db -f twitter" \
 "
-WARNING: delete-db on the instance 'twitter' will remove all data for this instance!
-
-
-INFO: There is not a database on the instance 'twitter', so nothing was removed.
+  The data for the instance 'twitter' was successfully removed.
 
 "
 
-# Test confirming with an instance running
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-assert_raises "./ineo start twitter" 0
+    # Test forcing with an instance running
 
-pid=$(get_instance_pid twitter)
-assert_run_pid $pid
+    # Create a fake directory
+    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
+    assert_raises "./ineo start twitter" 0
 
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+    set_instance_pid twitter
+    assert_run_pid $pid
 
-assert_not_run_pid $pid
+    assert_raises "./ineo delete-db -f twitter" 0
 
-# Test forcing without an instance running
+    assert_not_run_pid $pid
 
-assert_raises "./ineo delete-db -f twitter" 0
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+  done
+  assert_end ClearDataCorrectly
+}
+tests+=('ClearDataCorrectly')
 
-assert "./ineo delete-db -f twitter" \
+
+ClearDataCorrectlyWithoutADatabaseFile() {
+  for version in "${versions[@]}"
+  do
+    setup
+
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+    # Test confirming without an instance running
+
+    assert_raises "./ineo create -v $version twitter" 0
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+
+    assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
+
+    assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
-INFO: There is not a database on the instance 'twitter', so nothing was removed.
+  WARNING: delete-db on the instance 'twitter' will remove all data for this instance!
+
+
+  INFO: There is not a database on the instance 'twitter', so nothing was removed.
 
 "
 
-# Test forcing with an instance running
+    # Test confirming with an instance running
 
-assert_raises "./ineo start twitter" 0
+    assert_raises "./ineo start twitter" 0
 
-pid=$(get_instance_pid twitter)
-assert_run_pid $pid
+    set_instance_pid twitter
+    assert_run_pid $pid
 
-assert_raises "./ineo delete-db -f twitter" 0
+    assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
 
-assert_not_run_pid $pid
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+    assert_not_run_pid $pid
 
-assert_end Clear-data correctly without a database file
+    # Test forcing without an instance running
+
+    assert_raises "./ineo delete-db -f twitter" 0
+
+    assert "./ineo delete-db -f twitter" \
+"
+  INFO: There is not a database on the instance 'twitter', so nothing was removed.
+
+"
+
+    # Test forcing with an instance running
+
+    assert_raises "./ineo start twitter" 0
+
+    set_instance_pid twitter
+    assert_run_pid $pid
+
+    assert_raises "./ineo delete-db -f twitter" 0
+
+    assert_not_run_pid $pid
+
+    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+  done
+  assert_end ClearDataCorrectlyWithoutADatabaseFile
+}
+tests+=('ClearDataCorrectlyWithoutADatabaseFile')
 
 # ==============================================================================
 # TEST UPDATE
 # ==============================================================================
 
-# Update with incorrect parameters
-# ------------------------------------------------------------------------------
-setup
+UpdateWithIncorrectParameters() {
+  setup
 
-params=(
-  "-x" '-x'
-  "-x -y" '-x'
-  "facebook" 'facebook'
-  "facebook twitter" 'facebook'
-  "-x facebook" '-x'
-)
+  params=(
+    "-x" '-x'
+    "-x -y" '-x'
+    "facebook" 'facebook'
+    "facebook twitter" 'facebook'
+    "-x facebook" '-x'
+  )
 
-for ((i=0; i<${#params[*]}; i+=2)); do
-  assert_raises "./ineo update ${params[i]}" 1
-  assert        "./ineo update ${params[i]}" \
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo update ${params[i]}" 1
+    assert        "./ineo update ${params[i]}" \
 "
-ERROR: Invalid argument or option: ${params[i+1]}!
+  ERROR: Invalid argument or option: ${params[i+1]}!
 
-For help about the command 'update' type:
+  For help about the command 'update' type:
   ineo help update
 "
-done
+  done
 
-assert_end Update with incorrect parameters
+  assert_end UpdateWithIncorrectParameters
+}
+tests+=('UpdateWithIncorrectParameters')
 
-# Update correctly
-# ------------------------------------------------------------------------------
-setup
 
-# Make an installation
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-assert_raises "./ineo update" 0
+UpdateCorrectly() {
+  setup
 
-setup
-assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-old_version=$(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo)
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+  assert_raises "./ineo update" 0
 
-assert "./ineo update" \
+  setup
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+  old_version=$(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo)
+
+  assert "./ineo update" \
 "
-Ineo was successfully upgraded from $old_version to x.x.x
+  Ineo was successfully upgraded from $old_version to x.x.x
 
 "
 
-assert_raises "test $(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo) = 'x.x.x'" 0
+  assert_raises "test $(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo) = 'x.x.x'" 0
 
-assert_end update correctly
+  assert_end UpdateCorrectly
+}
+tests+=('UpdateCorrectly')
+
+
+if [[ -z "$test_name" ]]
+then
+  for test in "${tests[@]}"
+  do
+    "$test"
+  done
+else
+  "$test_name"
+fi
