@@ -1,6 +1,6 @@
 # ineo
 
-A simple but useful Neo4j instance manager
+A simple but useful Neo4j instance manager.
 
 Neo4j is a great graph database, however its architecture was designed to work with just one database process for each application. This issue is a limitation when we are developing an application and need an environment for testing and developing, or just when we are creating various applications.
 
@@ -8,13 +8,13 @@ Ineo figure out this limitation allowing to manage different Neo4j instances on 
 
 ## Installation
 
-1. Execute the bellow line on your terminal:
+1. Execute the line bellow on your terminal:
 
    ```
    curl -sSL http://getineo.cohesivestack.com | bash -s install
    ```
 
-2. Restart your terminal or execute the bellow line:
+2. Restart your terminal or execute the line bellow:
 
     ```
     source ~/.bash_profile
@@ -85,7 +85,7 @@ $ ineo stop my_db
 
 ### Restart instance
 
-Also is possible restart a database instances
+It's also possible to restart a database instance
 
 ```
 $ ineo restart my_db
@@ -95,9 +95,9 @@ $ ineo restart my_db
 
 The main objetive of Ineo is managing different Neo4j instances.
 
-### Create an instance with specific port
+### Create an instance with a specific port
 
-Imagine that you want create an instance for testing. This should be created with another http port, so you both instances can be running simultaneously.
+Imagine that you want to create an instance for testing. This should be created with another http port, so both instances can be running simultaneously.
 
 ```
 $ ineo create -p8486 my_db_test
@@ -105,7 +105,7 @@ $ ineo create -p8486 my_db_test
   The instance my_db_test was created successfully
 ```
 
-Now if you show the information about instances:
+Now, when you show the information about instances, you see:
 
 ```
 $ ineo instances
@@ -149,7 +149,7 @@ http://localhost:8485/ is ready.
 
 ### Show status for multiple instances
 
-Is possible show the status of all instances using the command `stop` without instance name.
+Is possible to show the status of all instances using the command `stop` without instance name.
 
 ```
 $ ineo status
@@ -184,7 +184,7 @@ $ ineo stop
 
 ### Restart multiple instance
 
-Also is possible restart multiple instances using the command `restart` without instance name.
+Also is possible to restart multiple instances using the command `restart` without instance name.
 
 ```
 $ ineo restart
@@ -192,7 +192,7 @@ $ ineo restart
 
 ## Installing a specific version
 
-The command `create` always use the last Neo4j version available at the date of Ineo version. However is possible to specify another version using the option `-v`
+The command `create` always uses the last Neo4j version available of the current Ineo version installed. However is possible to specify another version using the option `-v`
 
 ```
 ineo create -v 2.1.8
@@ -200,7 +200,7 @@ ineo create -v 2.1.8
 
 ### The command versions
 
-The command `versions` show all Neo4j versions available at the date of Ineo version.
+The command `versions` shows all Neo4j versions available of the current Ineo version installed.
 
 ```
 $ ineo versions
