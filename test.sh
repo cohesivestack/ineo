@@ -2,7 +2,7 @@
 
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
-LAST_VERSION='2.2.2'
+LAST_VERSION='2.3.0'
 
 # ==============================================================================
 # PROVISION
@@ -37,7 +37,7 @@ fi
 # If is all then test with all Neo4j versions
 if [ ${versions[0]} = 'all' ]
 then
-  versions=(1.9.9 2.0.4 2.1.8 2.2.2)
+  versions=(1.9.9 2.0.4 2.1.8 2.2.2 2.3.0)
 fi
 
 # On fake_neo4j_host is used to save cache tars
@@ -60,8 +60,8 @@ do
   fi
 done
 
-# fake_ineo_host is used to do a fake update on tests, this will be the last ineo
-# script but with a different version
+# fake_ineo_host is used to make a fake update on tests, this will be the last
+# ineo script but with a different version
 mkdir -p fake_ineo_host
 
 cp ./ineo ./fake_ineo_host/ineo
@@ -439,12 +439,12 @@ CreateWithIncorrectParameters() {
     "-f -x" 'x'
     "-p7474 -x" 'x'
     "-s7878 -x" 'x'
-    "-v2.2.2 -x" 'x'
-    "-p7474 -s7878 -v2.2.2 -d -f -x" 'x'
+    "-v$DEFAULT_VERSION -x" 'x'
+    "-p7474 -s7878 -v$DEFAULT_VERSION -d -f -x" 'x'
     "facebook twitter" 'twitter'
     "-x facebook twitter" 'x'
     "-p7474 facebook twitter" 'twitter'
-    "-p7474 -s7878 -v2.2.2 -d -f facebook twitter" 'twitter'
+    "-p7474 -s7878 -v$DEFAULT_VERSION -d -f facebook twitter" 'twitter'
   )
 
   for ((i=0; i<${#params[*]}; i+=2))
@@ -473,10 +473,10 @@ export INEO_HOME="$(pwd)/ineo_for_test"
 CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
   # The parameters to check are 'port' 'ssl port' 'version'
   params=(
-    'twitter'                        '7474' '7475' '2.2.2'
-    '-p8484 twitter'                 '8484' '8485' '2.2.2'
-    '-s9495 twitter'                 '7474' '9495' '2.2.2'
-    '-p8484 -s9495 twitter'          '8484' '9495' '2.2.2'
+    'twitter'                        '7474' '7475' '2.3.0'
+    '-p8484 twitter'                 '8484' '8485' '2.3.0'
+    '-s9495 twitter'                 '7474' '9495' '2.3.0'
+    '-p8484 -s9495 twitter'          '8484' '9495' '2.3.0'
     '-v1.9.9 twitter'                '7474' '7475' '1.9.9'
     '-p8484 -v1.9.9 twitter'         '8484' '8485' '1.9.9'
     '-s9495 -v1.9.9 twitter'         '7474' '9495' '1.9.9'
@@ -643,7 +643,7 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
 
   # Ensure the bad tar version of neo4j was downloaded
   assert_raises \
-    "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-2.2.2-unix.tar.gz" 0
+    "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$LAST_VERSION-unix.tar.gz" 0
 
   # Ensure the instance directory is empty yet
   assert_raises "test $(ls -A ineo_for_test/instances/twitter)" 1
@@ -1044,11 +1044,12 @@ VersionsCorrectly() {
   assert_raises "./ineo versions" 0
   assert        "./ineo versions" \
 "
-  The Neo4J versions available at Jun 3, 2015:
+  The Neo4J versions available at Nov 27, 2015:
   1.9.9
   2.0.4
   2.1.8
   2.2.2
+  2.3.0
 
   More information about Neo4j releases in: http://neo4j.com/download/other-releases
 
