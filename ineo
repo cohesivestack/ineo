@@ -131,6 +131,7 @@ function install {
 
   # Create folders
   local folders=(bin neo4j instances)
+  local folder
   for folder in "${folders[@]}"
   do
     mkdir "$TEMP_DIR/$folder"
@@ -471,6 +472,7 @@ function action {
     instances[0]=$instance_name
   fi
 
+  local instance_name
   for instance_name in "${instances[@]}"; do
     if [ ! -f ${INEO_HOME}/instances/${instance_name}/bin/neo4j ]; then
       printf "\n  ERROR: The instance '${instance_name}' seems that is not properly installed!\n"
@@ -581,6 +583,7 @@ function instances {
     printf "For help about the command 'create' type:\n"
     printf "  ineo help create\n"
   else
+    local instance_name
     for instance_name in "${INSTANCES[@]}"; do
       version=$(head -n 1 $INEO_HOME/instances/$instance_name/.version)
       port=$(sed -n '/^org\.neo4j\.server\.webserver\.port=\(.*\)$/s//\1/p' \

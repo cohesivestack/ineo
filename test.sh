@@ -109,7 +109,7 @@ function setup {
 InstallWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     "-e $(pwd)/ineo_for_test" 'e'
     "-e$(pwd)/ineo_for_test" 'e'
     "x -d $(pwd)/ineo_for_test" 'x'
@@ -118,6 +118,7 @@ InstallWithIncorrectParameters() {
     "-d$(pwd)/ineo_for_test y" 'y'
   )
 
+  local i
   for ((i=0; i<${#params[*]}; i+=2))
   do
     assert_raises "./ineo install ${params[i]}" 1
@@ -138,7 +139,7 @@ tests+=('InstallWithIncorrectParameters')
 InstallWithARelativePath() {
   setup
 
-  params=(
+  local params=(
     '-d ineo_for_test'
     '-dineo_for_test'
   )
@@ -166,11 +167,12 @@ InstallOnAnExistingDirectory() {
 
   assert_raises "mkdir $(pwd)/ineo_for_test" 0
 
-  params=(
+  local params=(
     "-d $(pwd)/ineo_for_test"
     "-d$(pwd)/ineo_for_test"
   )
 
+  local param
   for param in "${params[@]}"
   do
     assert_raises "./ineo install $param" 1
@@ -192,7 +194,7 @@ tests+=('InstallOnAnExistingDirectory')
 
 
 InstallCorrectly() {
-  params=(
+  local params=(
     "-d $(pwd)/ineo_for_test"
     "-d$(pwd)/ineo_for_test"
   )
@@ -228,7 +230,7 @@ tests+=('InstallCorrectly')
 UninstallWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     "-e $(pwd)/ineo_for_test" 'e'
     "-e$(pwd)/ineo_for_test" 'e'
     "x -d $(pwd)/ineo_for_test" 'x'
@@ -243,6 +245,7 @@ UninstallWithIncorrectParameters() {
     "-f -d$(pwd)/ineo_for_test y" 'y'
   )
 
+  local i
   for ((i=0; i<${#params[*]}; i+=2))
   do
     assert_raises "./ineo uninstall ${params[i]}" 1
@@ -263,11 +266,12 @@ tests+=('UninstallWithIncorrectParameters')
 UninstallWithARelativeDirectory() {
   setup
 
-  params=(
+  local params=(
     '-d ineo_for_test'
     '-dineo_for_test'
   )
 
+  local param
   for param in "${params[@]}"
   do
     assert_raises "./ineo uninstall $param" 1
@@ -289,7 +293,7 @@ tests+=('UninstallWithARelativeDirectory')
 UninstallWithANonExistentDirectory() {
   setup
 
-  params=(
+  local params=(
     "-d $(pwd)/ineo_for_test"
     "-d$(pwd)/ineo_for_test"
   )
@@ -297,6 +301,7 @@ UninstallWithANonExistentDirectory() {
   # Ensure that directory doesn't exists
   assert_raises "test -d $(pwd)/ineo_for_test" 1
 
+  local param
   for param in "${params[@]}"
   do
     assert_raises "./ineo uninstall $param" 1
@@ -316,11 +321,12 @@ tests+=('UninstallWithANonExistentDirectory')
 UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory() {
   setup
 
-  params=(
+  local params=(
     "-d $(pwd)/ineo_for_test"
     "-d$(pwd)/ineo_for_test"
   )
 
+  local param
   for param in "${params[@]}"
   do
 
@@ -374,13 +380,14 @@ tests+=('UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory')
 UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectoryUsingF() {
   setup
 
-  params=(
+  local params=(
     "-d $(pwd)/ineo_for_test -f"
     "-d$(pwd)/ineo_for_test -f"
     "-f -d $(pwd)/ineo_for_test"
     "-f -d$(pwd)/ineo_for_test"
   )
 
+  local param
   for param in "${params[@]}"
   do
     # Make an installation
@@ -433,7 +440,7 @@ tests+=('CreateAnInstanceWithoutTheRequiredParameter')
 CreateWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     "-x" 'x'
     "-d -x" 'x'
     "-f -x" 'x'
@@ -447,6 +454,7 @@ CreateWithIncorrectParameters() {
     "-p7474 -s7878 -v$DEFAULT_VERSION -d -f facebook twitter" 'twitter'
   )
 
+  local i
   for ((i=0; i<${#params[*]}; i+=2))
   do
     assert_raises "./ineo create ${params[i]}" 1
@@ -472,7 +480,7 @@ export INEO_HOME="$(pwd)/ineo_for_test"
 
 CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
   # The parameters to check are 'port' 'ssl port' 'version'
-  params=(
+  local params=(
     'twitter'                        '7474' '7475' '2.3.0'
     '-p8484 twitter'                 '8484' '8485' '2.3.0'
     '-s9495 twitter'                 '7474' '9495' '2.3.0'
@@ -483,14 +491,15 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
     '-p8484 -s9495 -v1.9.9 twitter'  '8484' '9495' '1.9.9'
   )
 
+  local i
   for ((i=0; i<${#params[*]}; i+=4))
   do
     setup
 
-    port=${params[i+1]}
-    ssl_port=${params[i+2]}
-    version=${params[i+3]}
-    config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+    local port=${params[i+1]}
+    local ssl_port=${params[i+2]}
+    local version=${params[i+3]}
+    local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -522,11 +531,12 @@ tests+=('CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters')
 
 CreateAnInstanceCorrectlyWithEveryVersion() {
 
+  local version
   for version in "${versions[@]}"
   do
     setup
 
-    config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+    local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -565,8 +575,9 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
 
   cp fake_neo4j_host/neo4j-community-${LAST_VERSION}-unix.tar.gz bad_tar_for_test
 
-  platform=$(uname -s | tr '[:upper:]' '[:lower:]')
+  local platform=$(uname -s | tr '[:upper:]' '[:lower:]')
 
+  local command_truncate
   if [ $platform = 'darwin' ]; then
     command_truncate=gtruncate
   elif [ $platform = 'linux' ]; then
@@ -692,7 +703,7 @@ actions=('start' 'status' 'restart' 'stop')
 ActionsWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     "-x" 'x'
     "-x -y" 'x'
     "-x twitter" 'x'
@@ -700,6 +711,7 @@ ActionsWithIncorrectParameters() {
     "-x facebook twitter" 'x'
   )
 
+  local i j
   for ((i=0; i<${#actions[*]}; i+=1)); do
     for ((j=0; j<${#params[*]}; j+=2)); do
       assert_raises "./ineo ${actions[i]} ${params[j]}" 1
@@ -724,9 +736,10 @@ ActionsOnANonExistentInstance() {
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-  for ((i=0; i<${#actions[*]}; i+=1)); do
-    assert_raises "./ineo ${actions[i]} twitter" 1
-    assert        "./ineo ${actions[i]} twitter" \
+  local action
+  for action in "${actions[@]}"; do
+    assert_raises "./ineo $action twitter" 1
+    assert        "./ineo $action twitter" \
 "
   ERROR: There is not an instance with the name 'twitter'!
 
@@ -747,9 +760,10 @@ ActionsOnANotProperlyInstalledInstance() {
 
   mkdir ineo_for_test/instances/twitter
 
-  for ((i=0; i<${#actions[*]}; i+=1)); do
-    assert_raises "./ineo ${actions[i]} twitter" 1
-    assert        "./ineo ${actions[i]} twitter" \
+  local action
+  for action in "${actions[@]}"; do
+    assert_raises "./ineo $action twitter" 1
+    assert        "./ineo $action twitter" \
 "
   ERROR: The instance 'twitter' seems that is not properly installed!
 
@@ -763,6 +777,7 @@ tests+=('ActionsOnANotProperlyInstalledInstance')
 
 
 ExecuteActionsCorrectly() {
+  local version
   for version in "${versions[@]}"
   do
     setup
@@ -813,6 +828,7 @@ tests+=('ExecuteActionsCorrectly')
 
 
 ExecuteActionsOnVariousInstancesCorrectly() {
+  local version
   for version in "${versions[@]}"
   do
     setup
@@ -828,11 +844,11 @@ ExecuteActionsOnVariousInstancesCorrectly() {
     assert_raises "echo -ne 'y\n' | ./ineo start" 0
 
     set_instance_pid twitter
-    pid_twitter=$pid
+    local pid_twitter=$pid
     assert_run_pid $pid_twitter
 
     set_instance_pid facebook
-    pid_facebook=$pid
+    local pid_facebook=$pid
     assert_run_pid $pid_facebook
 
     # status running
@@ -956,12 +972,12 @@ InstancesWithIncorrectParameters() {
     '-q'
   )
 
-  for ((i=0; i<${#params[*]}; i+=1))
-  do
-    assert_raises "./ineo instances ${params[i]}" 1
-    assert        "./ineo instances ${params[i]}" \
+  local param
+  for param in "${params[@]}"; do
+    assert_raises "./ineo instances $param" 1
+    assert        "./ineo instances $param" \
 "
-  ERROR: Invalid argument or option: ${params[i]}!
+  ERROR: Invalid argument or option: $param!
 
   For help about the command 'instances' type:
   ineo help instances
@@ -1013,17 +1029,17 @@ tests+=('InstancesCorrectly')
 VersionsWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     'wrong'
     '-q'
   )
 
-  for ((i=0; i<${#params[*]}; i+=1))
-  do
-    assert_raises "./ineo versions ${params[i]}" 1
-    assert        "./ineo versions ${params[i]}" \
+  local param
+  for param in "${params[@]}"; do
+    assert_raises "./ineo versions $param" 1
+    assert        "./ineo versions $param" \
 "
-  ERROR: Invalid argument or option: ${params[i]}!
+  ERROR: Invalid argument or option: $param!
 
   For help about the command 'versions' type:
   ineo help versions
@@ -1065,7 +1081,7 @@ tests+=('VersionsCorrectly')
 DestroyWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     "-x" 'x'
     "-x -y" 'x'
     "-x twitter" 'x'
@@ -1073,6 +1089,7 @@ DestroyWithIncorrectParameters() {
     "-x facebook twitter" 'x'
   )
 
+  local i
   for ((i=0; i<${#params[*]}; i+=2)); do
     assert_raises "./ineo destroy ${params[i]}" 1
     assert        "./ineo destroy ${params[i]}" \
@@ -1129,6 +1146,7 @@ tests+=('DestroyANonExistentInstance')
 
 
 DestroyCorrectly() {
+  local version
   for version in "${versions[@]}"
   do
     setup
@@ -1202,7 +1220,7 @@ tests+=('DestroyCorrectly')
 SetPortWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     "-x" 'x'
     "-x -y" 'x'
     "-x twitter" 'x'
@@ -1210,6 +1228,7 @@ SetPortWithIncorrectParameters() {
     "-x facebook 9898" 'x'
   )
 
+  local i
   for ((i=0; i<${#params[*]}; i+=2)); do
     assert_raises "./ineo set-port ${params[i]}" 1
     assert        "./ineo set-port ${params[i]}" \
@@ -1330,6 +1349,7 @@ tests+=('SetPortWithAnIncorrectOutOfRangePort')
 
 
 SetPortCorrectly() {
+  local version
   for version in "${versions[@]}"
   do
     setup
@@ -1377,7 +1397,7 @@ tests+=('SetPortCorrectly')
 ClearDataWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     "-x" 'x'
     "-x -y" 'x'
     "-x twitter" 'x'
@@ -1385,6 +1405,7 @@ ClearDataWithIncorrectParameters() {
     "-x facebook" 'x'
   )
 
+  local i
   for ((i=0; i<${#params[*]}; i+=2)); do
     assert_raises "./ineo delete-db ${params[i]}" 1
     assert        "./ineo delete-db ${params[i]}" \
@@ -1443,6 +1464,7 @@ tests+=('ClearDataOnANonExistentInstance')
 
 
 ClearDataCorrectly() {
+  local version
   for version in "${versions[@]}"
   do
     setup
@@ -1536,6 +1558,7 @@ tests+=('ClearDataCorrectly')
 
 
 ClearDataCorrectlyWithoutADatabaseFile() {
+  local version
   for version in "${versions[@]}"
   do
     setup
@@ -1606,7 +1629,7 @@ tests+=('ClearDataCorrectlyWithoutADatabaseFile')
 UpdateWithIncorrectParameters() {
   setup
 
-  params=(
+  local params=(
     "-x" '-x'
     "-x -y" '-x'
     "facebook" 'facebook'
@@ -1614,6 +1637,7 @@ UpdateWithIncorrectParameters() {
     "-x facebook" '-x'
   )
 
+  local i
   for ((i=0; i<${#params[*]}; i+=2)); do
     assert_raises "./ineo update ${params[i]}" 1
     assert        "./ineo update ${params[i]}" \
