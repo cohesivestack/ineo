@@ -28,15 +28,13 @@ test_name=${@:$OPTIND:1}
 
 # If there are not any argument specified then test just with default Neo4j
 # version
-if [ ${#versions[@]} -eq 0 ]
-then
+if [ ${#versions[@]} -eq 0 ]; then
   versions=("$DEFAULT_VERSION")
 
 fi
 
 # If is all then test with all Neo4j versions
-if [ ${versions[0]} = 'all' ]
-then
+if [ ${versions[0]} = 'all' ]; then
   versions=(1.9.9 2.0.4 2.1.8 2.2.2 2.3.0)
 fi
 
@@ -45,13 +43,11 @@ mkdir -p fake_neo4j_host
 
 # If some Neo4J version has not been downloaded then try to download it, so can
 # test locally reducing remote http requests.
-for version in "${versions[@]}"
-do
+for version in "${versions[@]}"; do
   tar_name="neo4j-community-$version-unix.tar.gz"
   if [ ! -f fake_neo4j_host/${tar_name} ]; then
     printf "\n\nDownloading ${version}\n\n"
-    if ! curl -f -o /tmp/${$}.${tar_name} ${NEO4J_HOSTNAME}/${tar_name}
-    then
+    if ! curl -f -o /tmp/${$}.${tar_name} ${NEO4J_HOSTNAME}/${tar_name}; then
       printf "\n\nError downloading ${version}\nThe test has been aborted!!!\n"
       exit 0
     fi
@@ -119,8 +115,7 @@ InstallWithIncorrectParameters() {
   )
 
   local i
-  for ((i=0; i<${#params[*]}; i+=2))
-  do
+  for ((i=0; i<${#params[*]}; i+=2)); do
     assert_raises "./ineo install ${params[i]}" 1
     assert        "./ineo install ${params[i]}" \
 "
@@ -144,8 +139,7 @@ InstallWithARelativePath() {
     '-dineo_for_test'
   )
 
-  for param in "${params[@]}"
-  do
+  for param in "${params[@]}"; do
     assert_raises "./ineo install $param" 1
     assert        "./ineo install $param" \
 "
@@ -173,8 +167,7 @@ InstallOnAnExistingDirectory() {
   )
 
   local param
-  for param in "${params[@]}"
-  do
+  for param in "${params[@]}"; do
     assert_raises "./ineo install $param" 1
     assert        "./ineo install $param" \
 "
@@ -199,8 +192,7 @@ InstallCorrectly() {
     "-d$(pwd)/ineo_for_test"
   )
 
-  for param in "${params[@]}"
-  do
+  for param in "${params[@]}"; do
     setup
 
     assert "./ineo install $param" \
@@ -246,8 +238,7 @@ UninstallWithIncorrectParameters() {
   )
 
   local i
-  for ((i=0; i<${#params[*]}; i+=2))
-  do
+  for ((i=0; i<${#params[*]}; i+=2)); do
     assert_raises "./ineo uninstall ${params[i]}" 1
     assert        "./ineo uninstall ${params[i]}" \
 "
@@ -272,8 +263,7 @@ UninstallWithARelativeDirectory() {
   )
 
   local param
-  for param in "${params[@]}"
-  do
+  for param in "${params[@]}"; do
     assert_raises "./ineo uninstall $param" 1
     assert        "./ineo uninstall $param" \
 "
@@ -302,8 +292,7 @@ UninstallWithANonExistentDirectory() {
   assert_raises "test -d $(pwd)/ineo_for_test" 1
 
   local param
-  for param in "${params[@]}"
-  do
+  for param in "${params[@]}"; do
     assert_raises "./ineo uninstall $param" 1
     assert        "./ineo uninstall $param" \
 "
@@ -327,8 +316,7 @@ UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory() {
   )
 
   local param
-  for param in "${params[@]}"
-  do
+  for param in "${params[@]}"; do
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -388,8 +376,7 @@ UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectoryUsingF() {
   )
 
   local param
-  for param in "${params[@]}"
-  do
+  for param in "${params[@]}"; do
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
@@ -455,8 +442,7 @@ CreateWithIncorrectParameters() {
   )
 
   local i
-  for ((i=0; i<${#params[*]}; i+=2))
-  do
+  for ((i=0; i<${#params[*]}; i+=2)); do
     assert_raises "./ineo create ${params[i]}" 1
     assert        "./ineo create ${params[i]}" \
 "
@@ -492,8 +478,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
   )
 
   local i
-  for ((i=0; i<${#params[*]}; i+=4))
-  do
+  for ((i=0; i<${#params[*]}; i+=4)); do
     setup
 
     local port=${params[i+1]}
@@ -532,8 +517,7 @@ tests+=('CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters')
 CreateAnInstanceCorrectlyWithEveryVersion() {
 
   local version
-  for version in "${versions[@]}"
-  do
+  for version in "${versions[@]}"; do
     setup
 
     local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
@@ -778,8 +762,7 @@ tests+=('ActionsOnANotProperlyInstalledInstance')
 
 ExecuteActionsCorrectly() {
   local version
-  for version in "${versions[@]}"
-  do
+  for version in "${versions[@]}"; do
     setup
 
     # Make an installation
@@ -829,8 +812,7 @@ tests+=('ExecuteActionsCorrectly')
 
 ExecuteActionsOnVariousInstancesCorrectly() {
   local version
-  for version in "${versions[@]}"
-  do
+  for version in "${versions[@]}"; do
     setup
 
     # Make an installation
@@ -990,8 +972,7 @@ tests+=('InstancesWithIncorrectParameters')
 
 
 InstancesCorrectly() {
-  for version in "${versions[@]}"
-  do
+  for version in "${versions[@]}"; do
     setup
 
     # Make an installation
@@ -1147,8 +1128,7 @@ tests+=('DestroyANonExistentInstance')
 
 DestroyCorrectly() {
   local version
-  for version in "${versions[@]}"
-  do
+  for version in "${versions[@]}"; do
     setup
 
     # Make an installation
@@ -1350,8 +1330,7 @@ tests+=('SetPortWithAnIncorrectOutOfRangePort')
 
 SetPortCorrectly() {
   local version
-  for version in "${versions[@]}"
-  do
+  for version in "${versions[@]}"; do
     setup
 
     # Make an installation
@@ -1465,8 +1444,7 @@ tests+=('ClearDataOnANonExistentInstance')
 
 ClearDataCorrectly() {
   local version
-  for version in "${versions[@]}"
-  do
+  for version in "${versions[@]}"; do
     setup
 
     # Make an installation
@@ -1559,8 +1537,7 @@ tests+=('ClearDataCorrectly')
 
 ClearDataCorrectlyWithoutADatabaseFile() {
   local version
-  for version in "${versions[@]}"
-  do
+  for version in "${versions[@]}"; do
     setup
 
     # Make an installation
@@ -1678,10 +1655,8 @@ UpdateCorrectly() {
 tests+=('UpdateCorrectly')
 
 
-if [[ -z "$test_name" ]]
-then
-  for test in "${tests[@]}"
-  do
+if [[ -z "$test_name" ]]; then
+  for test in "${tests[@]}"; do
     "$test"
   done
 else

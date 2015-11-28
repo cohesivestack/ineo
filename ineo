@@ -96,21 +96,18 @@ function install {
   done
 
   local arg1=${@:$OPTIND:1}
-  if [ ! -z "$arg1" ]
-  then
+  if [ ! -z "$arg1" ]; then
     invalid_command_param $arg1 'install'
     exit 1
   fi
 
   # Set INEO_HOME variable
-  if [ -z "$INEO_HOME" ]
-  then
+  if [ -z "$INEO_HOME" ]; then
     INEO_HOME=$DEFAULT_HOME
   fi
 
   # Check if directory is an absolute directory
-  if [[ ! $INEO_HOME =~ ^/ ]]
-  then
+  if [[ ! $INEO_HOME =~ ^/ ]]; then
     printf "\n  ERROR: The directory '$INEO_HOME' is not an absolute path!\n"
     printf "\n  Use directories like:"
     printf "\n  /opt/ineo"
@@ -119,8 +116,7 @@ function install {
   fi
 
   # Check if directory exists
-  if [ -d "$INEO_HOME" ]
-  then
+  if [ -d "$INEO_HOME" ]; then
     printf "\n  ERROR: The directory '$INEO_HOME' already exists!\n"
     printf "\n  If you want reinstall ineo then uninstall it with:"
     printf "\n  ineo uninstall -d $INEO_HOME\n"
@@ -132,8 +128,7 @@ function install {
   # Create folders
   local folders=(bin neo4j instances)
   local folder
-  for folder in "${folders[@]}"
-  do
+  for folder in "${folders[@]}"; do
     mkdir "$TEMP_DIR/$folder"
   done
 
@@ -151,8 +146,7 @@ function install {
 
   # If not exists a line with the current Ineo home directory then proceeds to
   # create it
-  if ! grep -Fq "$line_for_bash_profile" ~/.bash_profile
-  then
+  if ! grep -Fq "$line_for_bash_profile" ~/.bash_profile; then
     # Remove any old set variable
     sed -i.bak '/export INEO_HOME=/d' ~/.bash_profile
 
@@ -194,23 +188,20 @@ function uninstall {
   done
 
   local arg1=${@:$OPTIND:1}
-  if [ ! -z "$arg1" ]
-  then
+  if [ ! -z "$arg1" ]; then
     invalid_command_param $arg1 'uninstall'
     exit 1
   fi
 
   # Check if INEO_HOME variable is set
-  if [ -z "$INEO_HOME" ]
-  then
+  if [ -z "$INEO_HOME" ]; then
     printf "\n  ERROR: The variable '\$INEO_HOME' is not set!\n"
     printf "\n  Are you sure that Ineo is installed?:\n"
     exit 1
   fi
 
   # Check if the directory is an absolute directory
-  if [[ ! $INEO_HOME =~ ^/ ]]
-  then
+  if [[ ! $INEO_HOME =~ ^/ ]]; then
     printf "\n  ERROR: The directory '$INEO_HOME' is not an absolute path!\n"
     printf "\n  Use directories like:"
     printf "\n  /opt/ineo"
@@ -218,8 +209,7 @@ function uninstall {
     exit 1
   fi
 
-  if ! $forced
-  then
+  if ! $forced; then
     # Check if the directory exists
     if [ ! -d "$INEO_HOME" ]; then
       printf "\n  ERROR: The directory '$INEO_HOME' doesn't exists!\n"
@@ -260,8 +250,7 @@ function uninstall {
 # ==============================================================================
 
 function version {
-  if [ ! -z $2 ]
-  then
+  if [ ! -z $2 ]; then
     invalid_command_param $2 'version'
     exit 1
   fi
@@ -274,8 +263,7 @@ function version {
 # ==============================================================================
 
 function update {
-  if [ ! -z $2 ]
-  then
+  if [ ! -z $2 ]; then
     invalid_command_param $2 'update'
     exit 1
   fi
@@ -571,8 +559,7 @@ function destroy {
 # ==============================================================================
 
 function instances {
-  if [ ! -z $2 ]
-  then
+  if [ ! -z $2 ]; then
     invalid_command_param $2 'instances'
     exit 1
   fi
@@ -777,8 +764,7 @@ function delete-db {
 # ==============================================================================
 
 function versions {
-  if [ ! -z $2 ]
-  then
+  if [ ! -z $2 ]; then
     invalid_command_param $2 'versions'
     exit 1
   fi
@@ -793,8 +779,7 @@ function versions {
 # ==============================================================================
 
 function help {
-  if [ -z "$1" ]
-  then
+  if [ -z "$1" ]; then
     printf "$HELP"
   else
     command=$(echo "help_$1" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
@@ -1037,14 +1022,12 @@ COMMAND=$1
 # ==============================================================================
 
 if [ ! "$COMMAND" == "UPDATE_SCRIPT_BATCH" ]; then
-  if ! mkdir $LOCK_DIR
-  then
+  if ! mkdir $LOCK_DIR; then
     echo "\n  FATAL: Lock failed - exit\n\n" >&2
     exit 1
   fi
 
-  if ! mkdir $TEMP_DIR
-  then
+  if ! mkdir $TEMP_DIR; then
     echo "\n  FATAL: Creating then temp dir '$TEMP_DIR' failed - exit\n\n" >&2
     exit 1
   fi
