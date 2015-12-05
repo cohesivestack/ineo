@@ -140,16 +140,16 @@ function install {
   chmod 755 ${TEMP_DIR}/bin/ineo
 
   # Create variable
-  local line_for_bash_profile="export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME/bin:\$PATH"
+  local line_for_bashrc="export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME/bin:\$PATH"
 
   # If not exists a line with the current Ineo home directory then proceeds to
   # create it
-  if ! grep -Fq "$line_for_bash_profile" ~/.bash_profile; then
+  if ! grep -Fq "$line_for_bashrc" ~/.bashrc; then
     # Remove any old set variable
-    sed -i.bak '/export INEO_HOME=/d' ~/.bash_profile
+    sed -i.bak '/export INEO_HOME=/d' ~/.bashrc
 
-    # Add the line in .bash_profile to export the variable
-    echo "$line_for_bash_profile" >> ~/.bash_profile
+    # Add the line in .bashrc to export the variable
+    echo "$line_for_bashrc" >> ~/.bashrc
   fi
 
   # Move the TEMP_DIR to the target directory for ineo
@@ -157,7 +157,7 @@ function install {
 
   printf "\n  Ineo was successfully installed in $INEO_HOME.\n"
   printf "\n  To start using the 'ineo' command reopen your terminal or enter:"
-  printf "\n  source ~/.bash_profile\n"
+  printf "\n  source ~/.bashrc\n"
   exit 0
 }
 
@@ -236,8 +236,8 @@ function uninstall {
 
   # Replace the directories separator (/) by (\/), so it can be used with sed
   INEO_HOME=${INEO_HOME//\//\\\/}
-  # Remove variable in .bash_profile
-  sed -i.bak "/export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME\/bin:\$PATH/d" ~/.bash_profile
+  # Remove variable in .bashrc
+  sed -i.bak "/export INEO_HOME=$INEO_HOME; export PATH=\$INEO_HOME\/bin:\$PATH/d" ~/.bashrc
 
   printf "\n  Ineo was successfully uninstalled\n"
   exit 0
@@ -395,7 +395,7 @@ function create {
   https_port=${https_port:-$((${port} + 1))}
   set_port $instance_name $port
   set_https_port $instance_name $https_port
-  printf "\n  The instance ${instance_name} was created successfully\n\n"
+  printf "\n  The instance ${instance_name} was successfully created\n\n"
 }
 
 # ==============================================================================
@@ -864,7 +864,7 @@ function versions {
     done
     releases="$(echo -e "$releases" | sort )"
 
-    if [ -z $releases ]; then
+    if [ -z "$releases" ]; then
       error="\n  ERROR: Is not possible to connect to the Neo4j Github site!\n  Please check your internet connection or retry in some minutes\n\n"
     else
       echo -e "$releases" > $cache_file
@@ -962,7 +962,7 @@ ARGUMENTS:
   <port_number>    New port number
 
 OPTIONS:
-  -s    Use this option for changing the SSL port
+  -s    Use this option to change the SSL port
 "
 
 HELP_VERSIONS="USAGE:
@@ -971,9 +971,8 @@ HELP_VERSIONS="USAGE:
 DESCRIPTION:
   Show the Neo4j versions available for installing
 
-  This command show the versions available until the date of the current ineo
-  version. If the version you want to install is not listed, perhaps you need
-  to update the ineo version
+OPTIONS:
+  -u    Update the list of versions available
 "
 
 HELP_INSTANCES="USAGE:
@@ -1070,7 +1069,7 @@ HELP_DELETE_DB="USAGE:
 DESCRIPTION:
   Delete the data files for a specific instance.
 
-  This command delete the data files, so using it is slow on test-driven.
+  This command delete the data files, so using it could be slow on test-driven.
 
   If you need delete the data for restart it on test-driven, use cypher instead:
     'MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE n,r;'

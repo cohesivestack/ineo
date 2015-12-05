@@ -2,9 +2,9 @@
 
 A simple but useful Neo4j instance manager.
 
-Neo4j is a great graph database, however its architecture was designed to work with just one database process for each application. This issue is a limitation when we are developing an application and need an environment for testing and developing, or just when we are creating various applications.
+Neo4j is a great graph database, however its architecture was designed to work with just one database for each Neo4j server instance. This issue could be a problem when we are developing an application with an environment for testing and developing, or just when we are creating or serving two or more applications.
 
-Ineo figure out this limitation allowing to manage different Neo4j instances on different ports.
+Ineo figure out this issue allowing to manage different Neo4j instances on different ports.
 
 ## Installation
 
@@ -20,6 +20,8 @@ Ineo figure out this limitation allowing to manage different Neo4j instances on 
     source ~/.bash_profile
     ```
 
+   > Note: You must have Java installed on your machine to start Neo4j
+
 ## How to use
 
 ### Create an instance
@@ -34,7 +36,7 @@ $ ineo create my_db
 
 ### Show instance information
 
-Show the information about the recently created instance:
+Show the information about the recently instance created:
 
 ```
 $ ineo instances
@@ -102,7 +104,7 @@ Imagine that you want to create an instance for testing. This should be created 
 ```
 $ ineo create -p8486 my_db_test
 
-  The instance my_db_test was created successfully
+  The instance my_db_test was successfully created
 ```
 
 Now, when you show the information about instances, you see:
@@ -125,7 +127,7 @@ $ ineo instances
 
 ### Start multiple instances
 
-All instances can be started using the command `start` without instance name.
+All instances can be started using the command `start` without an instance name.
 
 ```
 $ ineo start
@@ -149,7 +151,7 @@ http://localhost:8485/ is ready.
 
 ### Show status for multiple instances
 
-Is possible to show the status of all instances using the command `stop` without instance name.
+It's possible to show the status of all instances using the command `stop` without instance name.
 
 ```
 $ ineo status
@@ -184,7 +186,7 @@ $ ineo stop
 
 ### Restart multiple instance
 
-Also is possible to restart multiple instances using the command `restart` without instance name.
+It's also possible to restart multiple instances using the command `restart` without instance name.
 
 ```
 $ ineo restart
@@ -200,7 +202,7 @@ ineo create -v 2.1.8
 
 ### The command versions
 
-The command `versions` shows all Neo4j versions available of the current Ineo version installed.
+The command `versions` shows all Neo4j versions available for installing.
 
 ```
 $ ineo versions
@@ -230,7 +232,7 @@ Destroying a neo4j instance.
 $ ineo destroy my_db
 ```
 
-The above line remove all files related to the instance my_db
+The line above remove all files related to the instance my_db
 
 ### delete-db
 
@@ -242,7 +244,7 @@ $ ineo delete-db my_db
 
 ### update
 
-Check for Ineo (not Neo4j) new versions and updating it if there is some available
+Check for new versions of Ineo (not Neo4j), and updates if a new version is available
 
 ```
 $ ineo update
@@ -277,17 +279,21 @@ If you installing from curl:
 ```
 $ curl -sSL http://getineo.cohesivestack.com | bash -s install -d ~/.ineo-custom-path
 ```
+## Tested on
+
+* OS X
+* Ubuntu
 
 ## Contributing
 
-Any issue on [https://github.com/carlosforero/ineo/issues](https://github.com/carlosforero/ineo/issues)
+Any issue on [https://github.com/cohesivestack/ineo/issues](https://github.com/cohesivestack/ineo/issues)
 
 All code contributions are welcome. The rules are:
 
 * Fork the repository
 * Always add or modify the test on `test.sh`
 * Use correctly indentation (2 spaces) and name conventions
-* Request a pull request
+* Pull request
 
 ## License
 

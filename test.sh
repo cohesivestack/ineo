@@ -200,7 +200,7 @@ InstallCorrectly() {
   Ineo was successfully installed in $(pwd)/ineo_for_test.
 
   To start using the 'ineo' command reopen your terminal or enter:
-  source ~/.bash_profile
+  source ~/.bashrc
 "
 
     assert_raises "test -d ineo_for_test" 0
@@ -209,7 +209,7 @@ InstallCorrectly() {
     assert_raises "test -d ineo_for_test/cache" 0
 
     assert_raises \
-      "grep -Fq 'export INEO_HOME=$(pwd)/ineo_for_test; export PATH=\$INEO_HOME/bin:\$PATH' ~/.bash_profile" 0
+      "grep -Fq 'export INEO_HOME=$(pwd)/ineo_for_test; export PATH=\$INEO_HOME/bin:\$PATH' ~/.bashrc" 0
   done
 
   assert_end InstallCorrectly
@@ -493,7 +493,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
     # Create the instance
     assert "./ineo create ${params[i]}" \
 "
-  The instance twitter was created successfully
+  The instance twitter was successfully created
 
 "
     # Ensure the correct neo4j version was downloaded
@@ -529,7 +529,7 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
     # Create the instance
     assert "./ineo create -p8484 -s9495 -v $version twitter" \
 "
-  The instance twitter was created successfully
+  The instance twitter was successfully created
 
 "
     # Ensure the correct neo4j version was downloaded
@@ -601,7 +601,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   # Create the instance with a good tar version
   assert "./ineo create -d -v$LAST_VERSION twitter" \
 "
-  The instance twitter was created successfully
+  The instance twitter was successfully created
 
 "
   # Ensure the correct neo4j version was downloaded
@@ -647,7 +647,7 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
   # Create the instance with -f option
   assert "./ineo create -f twitter" \
 "
-  The instance twitter was created successfully
+  The instance twitter was successfully created
 
 "
 
