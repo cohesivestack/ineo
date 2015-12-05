@@ -26,7 +26,7 @@ VERSION=1.0.0
 
 DEFAULT_HOME="$HOME/.ineo"
 
-DEFAULT_VERSION='2.3.0'
+DEFAULT_VERSION='2.3.1'
 
 DEFAULT_PORT='7474'
 
@@ -37,8 +37,6 @@ NEO4J_HOSTNAME="${NEO4J_HOSTNAME:-http://dist.neo4j.org}"
 # INEO_HOSTNAME can be assigned from the environment, so it can be changed
 # with testing to use a mock updating
 INEO_HOSTNAME="${INEO_HOSTNAME:-http://ineo.cohesivestack.com}"
-
-NEO4J_VERSIONS='  1.9.9\n  2.0.4\n  2.1.8\n  2.2.2\n  2.3.0\n'
 
 UPDATED_AT='Nov 27, 2015'
 
@@ -126,7 +124,7 @@ function install {
   fi
 
   # Create folders
-  local folders=(bin neo4j instances)
+  local folders=(bin neo4j instances cache)
   local folder
   for folder in "${folders[@]}"; do
     mkdir "$TEMP_DIR/$folder"
@@ -435,6 +433,15 @@ function action {
 
   # If is not specified the instance name, then apply on all instances
   if [ -z "$instance_name" ]; then
+
+    # Console requires an instance name
+    if [ $action_name == 'console' ]; then
+      printf "\n  ERROR: console requires an instance name!\n"
+      printf "\n  For help about the command 'console' type:"
+      printf "\n  ineo help console\n"
+      exit 1
+    fi
+
     # If no instances then an error messages
     if [ -z "$INSTANCES" ]; then
       printf "\n  ERROR: No instances created!\n"
@@ -475,6 +482,62 @@ function action {
   done
   printf "\n"
 }
+
+# ==============================================================================
+# SHELL
+# ==============================================================================
+
+function shell {
+  shift
+  while getopts "::" optname
+  do
+    case "${optname}" in
+      *)
+        invalid_command_param $OPTARG 'shell'
+        exit 1
+        ;;
+    esac
+  done
+
+  local instance_name=${@:$OPTIND:1}
+
+  shift
+  local arg2=${@:$OPTIND:1}
+  if [ ! -z "$arg2" ]; then
+    invalid_command_param $arg2 'shell'
+    exit 1
+  fi
+
+  # Shell requires an instance name
+  if [ -z "$instance_name" ]; then
+    printf "\n  ERROR: shell requires an instance name!\n"
+    printf "\n  For help about the command 'shell' type:"
+    printf "\n  ineo help shell\n"
+    exit 1
+  fi
+
+  # Check if the directory exists
+  if [ ! -d "$INEO_HOME/instances/${instance_name}" ]; then
+    printf "\n  ERROR: There is not an instance with the name '${instance_name}'!\n"
+    printf "\n  Use 'ineo instances' to list the instances installed\n\n"
+    exit 1
+  fi
+
+  # Check if the instance is running
+  if [ ! -f "$INEO_HOME/instances/${instance_name}/data/neo4j-service.pid" ]; then
+
+    printf "\n  ERROR: The instance '${instance_name}' is not running!\n"
+    printf "\n  Try start the instance typing:"
+    printf "\n  ineo start '${instance_name}'\n"
+    exit 1
+  fi
+
+  ${INEO_HOME}/instances/${instance_name}/bin/neo4j-shell
+
+  exit 0
+
+}
+
 
 # ==============================================================================
 # DESTROY
@@ -764,14 +827,61 @@ function delete-db {
 # ==============================================================================
 
 function versions {
-  if [ ! -z $2 ]; then
-    invalid_command_param $2 'versions'
+  local update=false
+
+  shift
+  while getopts ":u" optname
+  do
+    case "${optname}" in
+      u)
+        update=true
+        ;;
+      *)
+        invalid_command_param $OPTARG 'versions'
+        exit 1
+        ;;
+    esac
+  done
+
+  local arg2=${@:$OPTIND:1}
+  if [ ! -z "$arg2" ]; then
+    invalid_command_param $arg2 'versions'
     exit 1
   fi
 
-  printf "\n  The Neo4J versions available at $UPDATED_AT:\n"
-  printf "$NEO4J_VERSIONS"
-  printf "\n  More information about Neo4j releases in: http://neo4j.com/download/other-releases\n\n"
+  local fetch=''
+  local page=1
+  local cache_file=$INEO_HOME/cache/versions
+  local releases=''
+  local error=''
+
+  if [ ! -f $cache_file ] || [ ! -s $cache_file ] || [ "$update" == true ]; then
+    while [ "$page" -eq 1 ] || [ ! -z "$fetch" ]; do
+      fetch="$(wget -qO- /dev/null https://api.github.com/repos/neo4j/neo4j/releases?page=$page)"
+      fetch="$(echo $fetch | grep -o -E '"[0-9]+\.[0-9]+\.[0-9]+"' | sed 's/"/  /g')"
+      releases+="$fetch\n"
+      ((page++))
+    done
+    releases="$(echo -e "$releases" | sort )"
+
+    if [ -z $releases ]; then
+      error="\n  ERROR: Is not possible to connect to the Neo4j Github site!\n  Please check your internet connection or retry in some minutes\n\n"
+    else
+      echo -e "$releases" > $cache_file
+    fi
+  fi
+
+  if [ -f $cache_file ] && [ -s $cache_file ]; then
+    local updated_at="$(ls -l $cache_file | awk '{print $6, $7, $8 }')"
+    cat $cache_file | sed "s/$DEFAULT_VERSION/$DEFAULT_VERSION <- recommended and default for this Ineo's installation/"
+    printf "\n  These are the Neo4j versions available until $updated_at\n"
+    printf "\n  If you want to update this list type:"
+    printf "\n  ineo versions -u\n\n"
+  fi
+
+  if [ ! -z "$error" ]; then
+    printf "$error"
+  fi
 }
 
 # ==============================================================================
@@ -798,13 +908,15 @@ COMMANDS:
 
   create      Create a new instance with a specific <name>
   set-port    Change the port of a specific instance <name>
-  versions    Show the neo4j versions available for installing
+  versions    Show the Neo4j versions available for installing
   instances   Show the information about the installed instances
 
-  start       Start neo4j instances
-  stop        Stop neo4j instances
-  restart     Restart neo4j instances
+  start       Start Neo4j instances
+  stop        Stop Neo4j instances
+  restart     Restart Neo4j instances
   status      Show instances status
+  shell       Start the shell for a Neo4j instance
+  console     Start a Neo4j instance in mode console
 
   delete-db   Delete all data of a specific instance <name>
   destroy     Remove a specific instance <name>
@@ -826,15 +938,15 @@ ARGUMENTS:
   <instance_name>  Instance name to create
 
 OPTIONS:
-  -p <port>     Http server port for the neo4j instance.
+  -p <port>     Http server port for the Neo4j instance.
 
                 Default: 7474
 
-  -s <port>     Https server port (SSL port) for the neo4j instance
+  -s <port>     Https server port (SSL port) for the Neo4j instance
 
                 Default: <port>+1 (7475 when port is 7474)
 
-  -v <version>  The neo4j version for the instance
+  -v <version>  The Neo4j version for the instance
 
                 Default: $DEFAULT_VERSION
 "
@@ -857,7 +969,7 @@ HELP_VERSIONS="USAGE:
   versions
 
 DESCRIPTION:
-  Show the neo4j versions available for installing
+  Show the Neo4j versions available for installing
 
   This command show the versions available until the date of the current ineo
   version. If the version you want to install is not listed, perhaps you need
@@ -875,7 +987,7 @@ HELP_START="USAGE:
   start [options] [instance_names ...]
 
 DESCRIPTION:
-  Start one or more neo4j instances
+  Start one or more Neo4j instances
 
 ARGUMENTS:
   [instance_names ...]  Name of one or more instances to start (optional)
@@ -891,7 +1003,7 @@ HELP_STOP="USAGE:
   stop [options] [instance_names ...]
 
 DESCRIPTION:
-  Stop one or more neo4j instances
+  Stop one or more Neo4j instances
 
 ARGUMENTS:
   [instance_names ...]  Name of one or more instances to stop (optional)
@@ -907,7 +1019,7 @@ HELP_RESTART="USAGE:
   restart [options] [instance_names ...]
 
 DESCRIPTION:
-  Restart one or more neo4j instances
+  Restart one or more Neo4j instances
 
 ARGUMENTS:
   [instance_names ...]  Name of one or more instances to restart (optional)
@@ -923,13 +1035,33 @@ HELP_STATUS="USAGE:
   status [instance_names ...]
 
 DESCRIPTION:
-  Show the status of one or more neo4j instances
+  Show the status of one or more Neo4j instances
 
 ARGUMENTS:
   [instance_names ...]  Name of one or more instances to show status (optional)
 
                         If this argument is not specified then ineo tries
                         to show the status of all created instances
+"
+
+HELP_SHELL="USAGE:
+  shell <instance_name>
+
+DESCRIPTION:
+  Start the shell for a Neo4j instance
+
+ARGUMENTS:
+  <instance_name>  Instance name for working with the shell
+"
+
+HELP_CONSOLE="USAGE:
+  console <instance_name>
+
+DESCRIPTION:
+  Start a Neo4j instance in mode console
+
+ARGUMENTS:
+  <instance_name>  Instance name to start
 "
 
 HELP_DELETE_DB="USAGE:
@@ -1059,6 +1191,9 @@ case $COMMAND in
     ;;
   set-port)
     set-port $@
+    ;;
+  shell)
+    shell $@
     ;;
   update)
     update $@

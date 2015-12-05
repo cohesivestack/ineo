@@ -2,7 +2,7 @@
 
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
-LAST_VERSION='2.3.0'
+LAST_VERSION='2.3.1'
 
 # ==============================================================================
 # PROVISION
@@ -35,7 +35,7 @@ fi
 
 # If is all then test with all Neo4j versions
 if [ ${versions[0]} = 'all' ]; then
-  versions=(1.9.9 2.0.4 2.1.8 2.2.2 2.3.0)
+  versions=(1.8.3 1.9.9 2.0.5 2.1.8 2.2.7 2.3.1)
 fi
 
 # On fake_neo4j_host is used to save cache tars
@@ -206,6 +206,7 @@ InstallCorrectly() {
     assert_raises "test -d ineo_for_test" 0
     assert_raises "test -d ineo_for_test/bin" 0
     assert_raises "test -d ineo_for_test/instances" 0
+    assert_raises "test -d ineo_for_test/cache" 0
 
     assert_raises \
       "grep -Fq 'export INEO_HOME=$(pwd)/ineo_for_test; export PATH=\$INEO_HOME/bin:\$PATH' ~/.bash_profile" 0
@@ -467,10 +468,10 @@ export INEO_HOME="$(pwd)/ineo_for_test"
 CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
   # The parameters to check are 'port' 'ssl port' 'version'
   local params=(
-    'twitter'                        '7474' '7475' '2.3.0'
-    '-p8484 twitter'                 '8484' '8485' '2.3.0'
-    '-s9495 twitter'                 '7474' '9495' '2.3.0'
-    '-p8484 -s9495 twitter'          '8484' '9495' '2.3.0'
+    'twitter'                        '7474' '7475' "$LAST_VERSION"
+    '-p8484 twitter'                 '8484' '8485' "$LAST_VERSION"
+    '-s9495 twitter'                 '7474' '9495' "$LAST_VERSION"
+    '-p8484 -s9495 twitter'          '8484' '9495' "$LAST_VERSION"
     '-v1.9.9 twitter'                '7474' '7475' '1.9.9'
     '-p8484 -v1.9.9 twitter'         '8484' '8485' '1.9.9'
     '-s9495 -v1.9.9 twitter'         '7474' '9495' '1.9.9'
@@ -1011,16 +1012,16 @@ VersionsWithIncorrectParameters() {
   setup
 
   local params=(
-    'wrong'
-    '-q'
+    'wrong' 'wrong'
+    '-q' 'q'
   )
 
   local param
-  for param in "${params[@]}"; do
-    assert_raises "./ineo versions $param" 1
-    assert        "./ineo versions $param" \
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo versions ${params[i]}" 1
+    assert        "./ineo versions ${params[i]}" \
 "
-  ERROR: Invalid argument or option: $param!
+  ERROR: Invalid argument or option: ${params[i+1]}!
 
   For help about the command 'versions' type:
   ineo help versions
@@ -1039,21 +1040,154 @@ VersionsCorrectly() {
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
   assert_raises "./ineo versions" 0
-  assert        "./ineo versions" \
-"
-  The Neo4J versions available at Nov 27, 2015:
-  1.9.9
-  2.0.4
-  2.1.8
-  2.2.2
-  2.3.0
+  assert_raises "./ineo versions -u" 0
 
-  More information about Neo4j releases in: http://neo4j.com/download/other-releases
-
-"
   assert_end VersionsCorrectly
 }
 tests+=('VersionsCorrectly')
+
+
+# ==============================================================================
+# TEST SHELL
+# ==============================================================================
+
+ShellWithIncorrectParameters() {
+  setup
+
+  local params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "facebook twitter" 'twitter'
+    "-x facebook twitter" 'x'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo shell ${params[i]}" 1
+    assert        "./ineo shell ${params[i]}" \
+"
+  ERROR: Invalid argument or option: ${params[i+1]}!
+
+  For help about the command 'shell' type:
+  ineo help shell
+"
+  done
+
+  assert_end ShellWithIncorrectParameters
+}
+tests+=('ShellWithIncorrectParameters')
+
+
+StartAShellWithoutTheRequiredParameter() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo shell" 1
+  assert "./ineo shell" \
+"
+  ERROR: shell requires an instance name!
+
+  For help about the command 'shell' type:
+  ineo help shell
+"
+
+  assert_end StartAShellWithoutTheRequiredParameter
+}
+tests+=('StartAShellWithoutTheRequiredParameter')
+
+
+StartAShellWithANonExistentInstance() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo shell twitter" 1
+  assert        "./ineo shell twitter" \
+"
+  ERROR: There is not an instance with the name 'twitter'!
+
+  Use 'ineo instances' to list the instances installed
+"
+
+  assert_end StartAShellWithANonExistentInstance
+}
+tests+=('StartAShellWithANonExistentInstance')
+
+
+# ==============================================================================
+# TEST CONSOLE
+# ==============================================================================
+
+ConsoleWithIncorrectParameters() {
+  setup
+
+  local params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "facebook twitter" 'twitter'
+    "-x facebook twitter" 'x'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo console ${params[i]}" 1
+    assert        "./ineo console ${params[i]}" \
+"
+  ERROR: Invalid argument or option: ${params[i+1]}!
+
+  For help about the command 'console' type:
+  ineo help console
+"
+  done
+
+  assert_end ConsoleWithIncorrectParameters
+}
+tests+=('ConsoleWithIncorrectParameters')
+
+
+StartModeConsoleWithoutTheRequiredParameter() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo console" 1
+  assert "./ineo console" \
+"
+  ERROR: console requires an instance name!
+
+  For help about the command 'console' type:
+  ineo help console
+"
+
+  assert_end StartModeConsoleWithoutTheRequiredParameter
+}
+tests+=('StartModeConsoleWithoutTheRequiredParameter')
+
+
+StartModeConsoleWithANonExistentInstance() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo console twitter" 1
+  assert        "./ineo console twitter" \
+"
+  ERROR: There is not an instance with the name 'twitter'!
+
+  You can create an instance with the command 'ineo create twitter'
+"
+
+  assert_end StartModeConsoleWithANonExistentInstance
+}
+tests+=('StartModeConsoleWithANonExistentInstance')
+
 
 # ==============================================================================
 # TEST DESTROY
@@ -1148,7 +1282,6 @@ DestroyCorrectly() {
 
 
   The instance 'twitter' was successfully destroyed.
-
 "
 
     # Test confirming with an instance running
@@ -1469,7 +1602,6 @@ ClearDataCorrectly() {
 
 
   The data for the instance 'twitter' was successfully removed.
-
 "
 
     assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
@@ -1508,7 +1640,6 @@ ClearDataCorrectly() {
     assert "./ineo delete-db -f twitter" \
 "
   The data for the instance 'twitter' was successfully removed.
-
 "
 
     assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
@@ -1556,7 +1687,6 @@ ClearDataCorrectlyWithoutADatabaseFile() {
 
 
   INFO: There is not a database on the instance 'twitter', so nothing was removed.
-
 "
 
     # Test confirming with an instance running
@@ -1579,7 +1709,6 @@ ClearDataCorrectlyWithoutADatabaseFile() {
     assert "./ineo delete-db -f twitter" \
 "
   INFO: There is not a database on the instance 'twitter', so nothing was removed.
-
 "
 
     # Test forcing with an instance running
@@ -1645,7 +1774,6 @@ UpdateCorrectly() {
   assert "./ineo update" \
 "
   Ineo was successfully upgraded from $old_version to x.x.x
-
 "
 
   assert_raises "test $(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo) = 'x.x.x'" 0
