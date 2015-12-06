@@ -23,7 +23,7 @@ Ineo figure out this issue allowing to manage different Neo4j instances on diffe
 2. Restart your terminal or execute the line bellow:
 
     ```
-    source ~/.bash_profile
+    source ~/.bashrc
     ```
 
 ## How to use
