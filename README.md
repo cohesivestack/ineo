@@ -6,6 +6,13 @@ Neo4j is a great graph database, however its architecture was designed to work w
 
 Ineo figure out this issue allowing to manage different Neo4j instances on different ports.
 
+## Requirements
+
+* **Bash**. Installed by default on OS X and Ubuntu
+* **Curl**. Installed by default on OS X
+  > In Ubuntu use: `sudo apt-get install curl`
+* **Java**. In order to start the Neo4j server
+
 ## Installation
 
 1. Execute the line bellow on your terminal:
@@ -19,8 +26,6 @@ Ineo figure out this issue allowing to manage different Neo4j instances on diffe
     ```
     source ~/.bash_profile
     ```
-
-   > Note: You must have Java installed on your machine to start Neo4j
 
 ## How to use
 
