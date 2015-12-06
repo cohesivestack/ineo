@@ -38,8 +38,6 @@ NEO4J_HOSTNAME="${NEO4J_HOSTNAME:-http://dist.neo4j.org}"
 # with testing to use a mock updating
 INEO_HOSTNAME="${INEO_HOSTNAME:-http://ineo.cohesivestack.com}"
 
-UPDATED_AT='Nov 27, 2015'
-
 LOCK_DIR='/tmp/ineo.neo4j.instances.lock'
 
 TEMP_DIR="/tmp/$$.ineo"
@@ -857,7 +855,7 @@ function versions {
 
   if [ ! -f $cache_file ] || [ ! -s $cache_file ] || [ "$update" == true ]; then
     while [ "$page" -eq 1 ] || [ ! -z "$fetch" ]; do
-      fetch="$(wget -qO- /dev/null https://api.github.com/repos/neo4j/neo4j/releases?page=$page)"
+      fetch="$(curl -s https://api.github.com/repos/neo4j/neo4j/releases?page=$page)"
       fetch="$(echo $fetch | grep -o -E '"[0-9]+\.[0-9]+\.[0-9]+"' | sed 's/"/  /g')"
       releases+="$fetch\n"
       ((page++))
@@ -1071,7 +1069,7 @@ DESCRIPTION:
 
   This command delete the data files, so using it could be slow on test-driven.
 
-  If you need delete the data for restart it on test-driven, use cypher instead:
+  If you need delete the data to restart it on test-driven, use cypher instead:
     'MATCH (n) OPTIONAL MATCH (n)-[r]-() DELETE n,r;'
 
 ARGUMENTS:
