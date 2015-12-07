@@ -196,6 +196,20 @@ It's also possible to restart multiple instances using the command `restart` wit
 $ ineo restart
 ```
 
+### Changing the port
+
+You can change the port to a specific instance.
+
+```
+$ ineo set-port my_db 9494
+```
+
+The ssl port as well.
+
+```
+$ ineo set-port -s my_db 9494
+```
+
 ## Installing a specific version
 
 The command `create` always uses the last Neo4j version available of the current Ineo version installed. However is possible to specify another version using the option `-v`
@@ -210,56 +224,6 @@ The command `versions` shows all Neo4j versions available for installing.
 
 ```
 $ ineo versions
-```
-
-## Other commands
-
-### set-port
-
-You can change the port to a specific instance.
-
-```
-$ ineo set-port my_db 9494
-```
-
-The ssl port as well.
-
-```
-$ ineo set-port -s my_db 9494
-```
-
-### destroy
-
-Destroying a neo4j instance.
-
-```
-$ ineo destroy my_db
-```
-
-The line above remove all files related to the instance my_db
-
-### delete-db
-
-Delete the database files without destroy the instance.
-
-```
-$ ineo delete-db my_db
-```
-
-### update
-
-Check for new versions of Ineo (not Neo4j), and updates if a new version is available
-
-```
-$ ineo update
-```
-
-### uninstall
-
-Uninstall Ineo. The command ask if you want to delete the instances with their data.
-
-```
-$ ineo uninstall
 ```
 
 ## The command install
@@ -278,21 +242,85 @@ Ineo is installed in `$HOME/.ineo` by default, however is possible to specify an
 $ install -d ~/.ineo-custom-path
 ```
 
-If you installing from curl:
+If you are installing from curl:
 
 ```
 $ curl -sSL http://getineo.cohesivestack.com | bash -s install -d ~/.ineo-custom-path
 ```
+
+## Help and other commands
+
+Just typing `ineo` you can get a briew description of every Ineo command.
+
+```
+$ ineo help
+
+USAGE:
+  ineo <command> [options] [<arguments>]
+
+COMMANDS:
+
+  create      Create a new instance with a specific <name>
+  set-port    Change the port of a specific instance <name>
+  versions    Show the Neo4j versions available for installing
+  instances   Show the information about the installed instances
+
+  start       Start Neo4j instances
+  stop        Stop Neo4j instances
+  restart     Restart Neo4j instances
+  status      Show instances status
+  shell       Start the shell for a Neo4j instance
+  console     Start a Neo4j instance in mode console
+
+  delete-db   Delete all data of a specific instance <name>
+  destroy     Remove a specific instance <name>
+
+  install     Install ineo
+  update      Update ineo
+  uninstall   Uninstall ineo
+
+  help        Show this help or help for specific [command]
+```
+
+### Help for a specific command
+
+Using `ineo help [command]` you can get the help for a specific command:
+
+```
+$ ineo help start
+
+USAGE:
+  start [options] [instance_names ...]
+
+DESCRIPTION:
+  Start one or more Neo4j instances
+
+ARGUMENTS:
+  [instance_names ...]  Name of one or more instances to start (optional)
+
+                        If this argument is not specified then ineo tries
+                        to start all created instances
+
+OPTIONS:
+  -q    Start the instances without confirmation
+```
+
 ## Tested on
 
 * OS X
 * Ubuntu
 
+## Roadmap
+
+Feel free to make suggestions. Use issues for that.
+
+[https://github.com/cohesivestack/ineo/blob/master/ROADMAP.md](https://github.com/cohesivestack/ineo/blob/master/ROADMAP.md)
+
 ## Contributing
 
 Any issue on [https://github.com/cohesivestack/ineo/issues](https://github.com/cohesivestack/ineo/issues)
 
-All code contributions are welcome. The rules are:
+Code contributions are welcome. The rules are:
 
 * Fork the repository
 * Always add or modify the test on `test.sh`
