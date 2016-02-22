@@ -4,6 +4,24 @@ NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
 LAST_VERSION='2.3.1'
 
+# Regular Colors
+BLACK='\033[0;30m'
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[0;37m'
+
+# Underline
+UNDERLINE='\033[4m'
+ITALIC='\033[3m'
+BOLD='\033[1m'
+
+# No Format
+NF='\033[0m'
+
 # ==============================================================================
 # PROVISION
 # ==============================================================================
@@ -34,8 +52,9 @@ if [ ${#versions[@]} -eq 0 ]; then
 fi
 
 # If is all then test with all Neo4j versions
-if [ ${versions[0]} = 'all' ]; then
-  versions=(1.8.3 1.9.9 2.0.5 2.1.8 2.2.7 2.3.1)
+if [ ${versions[0]} == 'all' ]; then
+  #versions=(1.8.3 1.9.9 2.0.5 2.1.8 2.2.7 2.3.1)
+  versions=(2.3.1)
 fi
 
 # On fake_neo4j_host is used to save cache tars
@@ -119,10 +138,10 @@ InstallWithIncorrectParameters() {
     assert_raises "./ineo install ${params[i]}" 1
     assert        "./ineo install ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'install' type:
-  ineo help install
+  ${NF}View help about the command ${UNDERLINE}install${NF} typing:
+    ${CYAN}ineo help install${NF}
 "
   done
 
@@ -143,11 +162,11 @@ InstallWithARelativePath() {
     assert_raises "./ineo install $param" 1
     assert        "./ineo install $param" \
 "
-  ERROR: The directory 'ineo_for_test' is not an absolute path!
+  ${PURPLE}Error -> The directory ${BOLD}ineo_for_test${PURPLE} is not an absolute path
 
-  Use directories like:
-  /opt/ineo
-  ~/.ineo
+  ${NF}Use directories like:
+    ${CYAN}/opt/ineo
+    ~/.ineo${NF}
 "
   done
 
@@ -171,13 +190,13 @@ InstallOnAnExistingDirectory() {
     assert_raises "./ineo install $param" 1
     assert        "./ineo install $param" \
 "
-  ERROR: The directory '$(pwd)/ineo_for_test' already exists!
+  ${PURPLE}Error -> The directory ${BOLD}$(pwd)/ineo_for_test${PURPLE} already exists
 
-  If you want reinstall ineo then uninstall it with:
-  ineo uninstall -d $(pwd)/ineo_for_test
+  ${NF}If you want reinstall ineo then uninstall it with:
+    ${CYAN}ineo uninstall -d $(pwd)/ineo_for_test
 
-  or ensure the directory doesn't contain anything important then remove it with:
-  rm -r $(pwd)/ineo_for_test
+  ${NF}or ensure the directory doesn't contain anything important then remove it with:
+    ${CYAN}rm -r $(pwd)/ineo_for_test${NF}
 "
   done
 
@@ -197,10 +216,10 @@ InstallCorrectly() {
 
     assert "./ineo install $param" \
 "
-  Ineo was successfully installed in $(pwd)/ineo_for_test.
+  ${GREEN}Ineo was successfully installed in ${BOLD}$(pwd)/ineo_for_test
 
-  To start using the 'ineo' command reopen your terminal or enter:
-  source ~/.bashrc
+  ${NF}To start using the ${UNDERLINE}ineo${NF} command reopen your terminal or enter:
+    ${CYAN}source ~/.bashrc${NF}
 "
 
     assert_raises "test -d ineo_for_test" 0
@@ -243,10 +262,10 @@ UninstallWithIncorrectParameters() {
     assert_raises "./ineo uninstall ${params[i]}" 1
     assert        "./ineo uninstall ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'uninstall' type:
-  ineo help uninstall
+  ${NF}View help about the command ${UNDERLINE}uninstall${NF} typing:
+    ${CYAN}ineo help uninstall${NF}
 "
   done
 
@@ -268,11 +287,11 @@ UninstallWithARelativeDirectory() {
     assert_raises "./ineo uninstall $param" 1
     assert        "./ineo uninstall $param" \
 "
-  ERROR: The directory 'ineo_for_test' is not an absolute path!
+  ${PURPLE}Error -> The directory ${BOLD}ineo_for_test${PURPLE} is not an absolute path
 
-  Use directories like:
-  /opt/ineo
-  ~/.ineo
+  ${NF}Use directories like:
+    ${CYAN}/opt/ineo
+    ~/.ineo${NF}
 "
   done
 
@@ -297,9 +316,9 @@ UninstallWithANonExistentDirectory() {
     assert_raises "./ineo uninstall $param" 1
     assert        "./ineo uninstall $param" \
 "
-  ERROR: The directory '$(pwd)/ineo_for_test' doesn't exists!
+  ${PURPLE}Error -> The directory ${BOLD}$(pwd)/ineo_for_test${PURPLE} doesn't exists
 
-  Are you sure Ineo is installed?
+  ${NF}Are you sure that Ineo is installed?
 "
   done
 
@@ -328,7 +347,7 @@ UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory() {
     # Try uninstall saying no to first prompt
     assert "echo -ne 'n\n' | ./ineo uninstall $param" \
 "
-  WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
+  ${YELLOW}Warning -> The directory ${RED}$(pwd)/ineo_for_test${YELLOW} doesn't look like an Ineo directory.${NF}
 "
     # Ensure that directory exists yet
     assert_raises "test -d $(pwd)/ineo_for_test" 0
@@ -337,10 +356,10 @@ UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory() {
     # Try uninstall saying yes to first prompt and no to second prompt
     assert "echo -ne 'y\nn\n' | ./ineo uninstall $param" \
 "
-  WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
+  ${YELLOW}Warning -> The directory ${RED}$(pwd)/ineo_for_test${YELLOW} doesn't look like an Ineo directory.${NF}
 
 
-  WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
+  ${YELLOW}Warning -> This action will remove everything in ${RED}$(pwd)/ineo_for_test${NF}
 "
     # Ensure that directory exists yet
     assert_raises "test -d $(pwd)/ineo_for_test" 0
@@ -349,13 +368,13 @@ UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory() {
     # Uninstall saying yes to first prompt and yes to second prompt
     assert "echo -ne 'y\ny\n' | ./ineo uninstall $param" \
 "
-  WARNING: The directory '$(pwd)/ineo_for_test' doesn't look like an Ineo directory!
+  ${YELLOW}Warning -> The directory ${RED}$(pwd)/ineo_for_test${YELLOW} doesn't look like an Ineo directory.${NF}
 
 
-  WARNING: This action will remove everything in '$(pwd)/ineo_for_test'!
+  ${YELLOW}Warning -> This action will remove everything in ${RED}$(pwd)/ineo_for_test${NF}
 
 
-  Ineo was successfully uninstalled
+  ${GREEN}Ineo was successfully uninstalled.${NF}
 "
     # Ensure that directory doesn't exists
     assert_raises "test -d $(pwd)/ineo_for_test" 1
@@ -390,7 +409,7 @@ UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectoryUsingF() {
     # Uninstall using force
     assert "./ineo uninstall $param" \
 "
-  Ineo was successfully uninstalled
+  ${GREEN}Ineo was successfully uninstalled.${NF}
 "
 
     # Ensure that directory doesn't exists
@@ -415,12 +434,11 @@ CreateAnInstanceWithoutTheRequiredParameter() {
   assert_raises "./ineo create" 1
   assert "./ineo create" \
 "
-  ERROR: create requires an instance name!
+  ${PURPLE}Error -> create requires an instance name
 
-  For help about the command 'create' type:
-  ineo help create
+  ${NF}View help about the command ${UNDERLINE}create${NF} typing:
+    ${CYAN}ineo help create${NF}
 "
-
   assert_end CreateAnInstanceWithoutTheRequiredParameter
 }
 tests+=('CreateAnInstanceWithoutTheRequiredParameter')
@@ -447,10 +465,10 @@ CreateWithIncorrectParameters() {
     assert_raises "./ineo create ${params[i]}" 1
     assert        "./ineo create ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'create' type:
-  ineo help create
+  ${NF}View help about the command ${UNDERLINE}create${NF} typing:
+    ${CYAN}ineo help create${NF}
 "
   done
 
@@ -493,7 +511,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
     # Create the instance
     assert "./ineo create ${params[i]}" \
 "
-  The instance twitter was successfully created
+  ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully created.${NF}
 
 "
     # Ensure the correct neo4j version was downloaded
@@ -529,8 +547,7 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
     # Create the instance
     assert "./ineo create -p8484 -s9495 -v $version twitter" \
 "
-  The instance twitter was successfully created
-
+  ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully created.${NF}
 "
     # Ensure the correct neo4j version was downloaded
     assert_raises \
@@ -580,9 +597,9 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   # Create the instance with a bad tar version
   assert "./ineo create -v$LAST_VERSION twitter" \
 "
-  ERROR: The tar file 'neo4j-community-$LAST_VERSION-unix.tar.gz' can't be extracted!
+  ${PURPLE}Error -> The tar file ${BOLD}neo4j-community-$LAST_VERSION-unix.tar.gz${PURPLE} can't be extracted
 
-  Try run the command 'create' with the -d option to download the tar file again
+  ${NF}Try run the command ${UNDERLINE}create${NF} with the -d option to download the tar file again
 
 "
   # Ensure the bad tar version of neo4j was downloaded
@@ -601,7 +618,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   # Create the instance with a good tar version
   assert "./ineo create -d -v$LAST_VERSION twitter" \
 "
-  The instance twitter was successfully created
+  ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully created.${NF}
 
 "
   # Ensure the correct neo4j version was downloaded
@@ -631,10 +648,9 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
   # Try create the instance
   assert "./ineo create twitter" \
 "
-  ERROR: A directory for the instance 'twitter' already exists!
+  ${PURPLE}Error -> A directory for the instance ${BOLD}twitter${PURPLE} already exists
 
-  Maybe the instance already was created or try run the command 'install' with the -f option to force the installation
-
+  ${NF}Maybe the instance already was created or try run the command ${UNDERLINE}install${NF} with the -f option to force the installation
 "
 
   # Ensure the bad tar version of neo4j was downloaded
@@ -647,8 +663,7 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
   # Create the instance with -f option
   assert "./ineo create -f twitter" \
 "
-  The instance twitter was successfully created
-
+  ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully created.${NF}
 "
 
   # Ensure neo4j exists
@@ -657,27 +672,6 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
   assert_end CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption
 }
 tests+=('CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption')
-
-
-CreateAnInstanceWithoutTheRequiredParameter() {
-  setup
-
-  # Make an installation
-  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
-
-  assert_raises "./ineo create" 1
-  assert "./ineo create" \
-"
-  ERROR: create requires an instance name!
-
-  For help about the command 'create' type:
-  ineo help create
-"
-
-  assert_end CreateAnInstanceWithoutTheRequiredParameter
-}
-tests+=('CreateAnInstanceWithoutTheRequiredParameter')
-
 
 # ==============================================================================
 # TEST INSTANCE ACTIONS (START, STATUS, RESTART, STOP)
@@ -690,10 +684,7 @@ ActionsWithIncorrectParameters() {
 
   local params=(
     "-x" 'x'
-    "-x -y" 'x'
-    "-x twitter" 'x'
-    "facebook twitter" 'twitter'
-    "-x facebook twitter" 'x'
+
   )
 
   local i j
@@ -702,10 +693,10 @@ ActionsWithIncorrectParameters() {
       assert_raises "./ineo ${actions[i]} ${params[j]}" 1
       assert        "./ineo ${actions[i]} ${params[j]}" \
 "
-  ERROR: Invalid argument or option: ${params[j+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[j+1]}
 
-  For help about the command '${actions[i]}' type:
-  ineo help ${actions[i]}
+  ${NF}View help about the command ${UNDERLINE}${actions[i]}${NF} typing:
+    ${CYAN}ineo help ${actions[i]}${NF}
 "
     done
   done
@@ -726,9 +717,11 @@ ActionsOnANonExistentInstance() {
     assert_raises "./ineo $action twitter" 1
     assert        "./ineo $action twitter" \
 "
-  ERROR: There is not an instance with the name 'twitter'!
+  ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter
 
-  You can create an instance with the command 'ineo create twitter'
+  ${NF}You can create an instance with the command:
+    ${CYAN}ineo create twitter${NF}
+
 "
   done
 
@@ -750,9 +743,10 @@ ActionsOnANotProperlyInstalledInstance() {
     assert_raises "./ineo $action twitter" 1
     assert        "./ineo $action twitter" \
 "
-  ERROR: The instance 'twitter' seems that is not properly installed!
+  ${PURPLE}Error -> The instance ${BOLD}twitter${PURPLE} seems that is not properly installed
 
-  You can recreate the instance with the command 'ineo create -f twitter'
+  ${NF}You can recreate the instance with the command:
+    ${CYAN}ineo create -f twitter${NF}
 "
   done
 
@@ -960,10 +954,10 @@ InstancesWithIncorrectParameters() {
     assert_raises "./ineo instances $param" 1
     assert        "./ineo instances $param" \
 "
-  ERROR: Invalid argument or option: $param!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}$param
 
-  For help about the command 'instances' type:
-  ineo help instances
+  ${NF}View help about the command ${UNDERLINE}instances${NF} typing:
+    ${CYAN}ineo help instances${NF}
 "
   done
 
@@ -1021,10 +1015,10 @@ VersionsWithIncorrectParameters() {
     assert_raises "./ineo versions ${params[i]}" 1
     assert        "./ineo versions ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'versions' type:
-  ineo help versions
+  ${NF}View help about the command ${UNDERLINE}versions${NF} typing:
+    ${CYAN}ineo help versions${NF}
 "
   done
 
@@ -1067,10 +1061,10 @@ ShellWithIncorrectParameters() {
     assert_raises "./ineo shell ${params[i]}" 1
     assert        "./ineo shell ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'shell' type:
-  ineo help shell
+  ${NF}View help about the command ${UNDERLINE}shell${NF} typing:
+    ${CYAN}ineo help shell${NF}
 "
   done
 
@@ -1088,10 +1082,10 @@ StartAShellWithoutTheRequiredParameter() {
   assert_raises "./ineo shell" 1
   assert "./ineo shell" \
 "
-  ERROR: shell requires an instance name!
+  ${PURPLE}Error -> shell requires an instance name
 
-  For help about the command 'shell' type:
-  ineo help shell
+  ${NF}View help about the command ${UNDERLINE}shell${NF} typing:
+    ${CYAN}ineo help shell${NF}
 "
 
   assert_end StartAShellWithoutTheRequiredParameter
@@ -1108,9 +1102,10 @@ StartAShellWithANonExistentInstance() {
   assert_raises "./ineo shell twitter" 1
   assert        "./ineo shell twitter" \
 "
-  ERROR: There is not an instance with the name 'twitter'!
+  ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter
 
-  Use 'ineo instances' to list the instances installed
+  ${NF}List installed instances typing:
+    ${CYAN}ineo instances${NF}
 "
 
   assert_end StartAShellWithANonExistentInstance
@@ -1138,10 +1133,10 @@ ConsoleWithIncorrectParameters() {
     assert_raises "./ineo console ${params[i]}" 1
     assert        "./ineo console ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'console' type:
-  ineo help console
+  ${NF}View help about the command ${UNDERLINE}console${NF} typing:
+    ${CYAN}ineo help console${NF}
 "
   done
 
@@ -1159,10 +1154,10 @@ StartModeConsoleWithoutTheRequiredParameter() {
   assert_raises "./ineo console" 1
   assert "./ineo console" \
 "
-  ERROR: console requires an instance name!
+  ${PURPLE}Error -> console requires an instance name
 
-  For help about the command 'console' type:
-  ineo help console
+  ${NF}View help about the command ${UNDERLINE}console${NF} typing:
+    ${CYAN}ineo help console${NF}
 "
 
   assert_end StartModeConsoleWithoutTheRequiredParameter
@@ -1179,9 +1174,10 @@ StartModeConsoleWithANonExistentInstance() {
   assert_raises "./ineo console twitter" 1
   assert        "./ineo console twitter" \
 "
-  ERROR: There is not an instance with the name 'twitter'!
+  ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter
 
-  You can create an instance with the command 'ineo create twitter'
+  ${NF}You can create an instance with the command:
+    ${CYAN}ineo create twitter${NF}
 "
 
   assert_end StartModeConsoleWithANonExistentInstance
@@ -1209,10 +1205,10 @@ DestroyWithIncorrectParameters() {
     assert_raises "./ineo destroy ${params[i]}" 1
     assert        "./ineo destroy ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'destroy' type:
-  ineo help destroy
+  ${NF}View help about the command ${UNDERLINE}destroy${NF} typing:
+    ${CYAN}ineo help destroy${NF}
 "
   done
 
@@ -1230,10 +1226,10 @@ DestroyAnInstanceWithoutTheRequiredParameter() {
   assert_raises "./ineo destroy" 1
   assert "./ineo destroy" \
 "
-  ERROR: destroy requires an instance name!
+  ${PURPLE}Error -> destroy requires an instance name
 
-  For help about the command 'destroy' type:
-  ineo help destroy
+  ${NF}View help about the command ${UNDERLINE}destroy${NF} typing:
+    ${CYAN}ineo help destroy${NF}
 "
 
   assert_end DestroyAnInstanceWithoutTheRequiredParameter
@@ -1250,9 +1246,10 @@ DestroyANonExistentInstance() {
   assert_raises "./ineo destroy twitter" 1
   assert        "./ineo destroy twitter" \
 "
-  ERROR: There is not an instance with the name 'twitter'!
+  ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter
 
-  Use 'ineo instances' to list the instances installed
+  ${NF}List installed instances typing:
+    ${CYAN}ineo instances${NF}
 "
 
   assert_end DestroyANonExistentInstance
@@ -1277,11 +1274,11 @@ DestroyCorrectly() {
     assert_raises "./ineo create -v $version twitter" 0
     assert "echo -ne 'y\n' | ./ineo destroy twitter" \
 "
-  WARNING: Destroying the instance 'twitter' will remove all data for this instance!
+  ${YELLOW}Warning -> Destroying the instance ${RED}twitter${YELLOW} will remove all data for this instance${NF}
 
 
 
-  The instance 'twitter' was successfully destroyed.
+  ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully destroyed.${NF}
 "
 
     # Test confirming with an instance running
@@ -1305,8 +1302,7 @@ DestroyCorrectly() {
     assert_raises "./ineo create -v $version twitter" 0
     assert "./ineo destroy -f twitter" \
 "
-  The instance 'twitter' was successfully destroyed.
-
+  ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully destroyed.${NF}
 "
 
     # Test forcing with an instance running
@@ -1346,10 +1342,10 @@ SetPortWithIncorrectParameters() {
     assert_raises "./ineo set-port ${params[i]}" 1
     assert        "./ineo set-port ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'set-port' type:
-  ineo help set-port
+  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
+    ${CYAN}ineo help set-port${NF}
 "
   done
 
@@ -1369,19 +1365,19 @@ SetPortWithoutTheRequireParameters() {
   assert_raises "./ineo set-port" 1
   assert        "./ineo set-port" \
 "
-  ERROR: set-port requires an instance name and a port number!
+  ${PURPLE}Error -> ${BOLD}set-port${PURPLE} requires an instance name and a port number
 
-  For help about the command 'set-port' type:
-  ineo help set-port
+  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
+    ${CYAN}ineo help set-port${NF}
 "
 
   assert_raises "./ineo set-port twitter" 1
   assert        "./ineo set-port twitter" \
 "
-  ERROR: set-port requires an instance name and a port number!
+  ${PURPLE}Error -> ${BOLD}set-port${PURPLE} requires an instance name and a port number
 
-  For help about the command 'set-port' type:
-  ineo help set-port
+  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
+    ${CYAN}ineo help set-port${NF}
 "
 
   assert_end SetPortWithoutTheRequireParameters
@@ -1398,9 +1394,10 @@ SetPortOnANonExistentInstance() {
   assert_raises "./ineo set-port twitter 7575" 1
   assert        "./ineo set-port twitter 7474" \
 "
-  ERROR: There is not an instance with the name 'twitter' or is not properly installed!
+  ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter${PURPLE} or is not properly installed
 
-  Use 'ineo instances' to list the instances installed
+  ${NF}List installed instances typing:
+    ${CYAN}ineo instances${NF}
 "
 
   assert_end SetPortOnANonExistentInstance
@@ -1419,10 +1416,10 @@ SetPortWithAnIncorrectNumberPort() {
   assert_raises "./ineo set-port twitter aaa" 1
   assert        "./ineo set-port twitter aaa" \
 "
-  ERROR: The port must be a positive integer number!
+  ${PURPLE}Error -> The port must be a positive integer number
 
-  For help about the command 'set-port' type:
-  ineo help set-port
+  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
+    ${CYAN}ineo help set-port${NF}
 "
 
   assert_end SetPortWithAnIncorrectNumberPort
@@ -1441,19 +1438,19 @@ SetPortWithAnIncorrectOutOfRangePort() {
   assert_raises "./ineo set-port twitter 65536" 1
   assert        "./ineo set-port twitter 65536" \
 "
-  ERROR: The port must be a number between 1 and 65535!
+  ${PURPLE}Error -> The port must be a number between ${BOLD}1${PURPLE} and ${BOLD}65535
 
-  For help about the command 'set-port' type:
-  ineo help set-port
+  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
+    ${CYAN}ineo help set-port${NF}
 "
 
   assert_raises "./ineo set-port twitter 0" 1
   assert        "./ineo set-port twitter 0" \
 "
-  ERROR: The port must be a number between 1 and 65535!
+  ${PURPLE}Error -> The port must be a number between ${BOLD}1${PURPLE} and ${BOLD}65535
 
-  For help about the command 'set-port' type:
-  ineo help set-port
+  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
+    ${CYAN}ineo help set-port${NF}
 "
 
   assert_end SetPortWithAnIncorrectOutOfRangePort
@@ -1475,26 +1472,26 @@ SetPortCorrectly() {
     assert_raises "./ineo set-port twitter 1" 0
     assert        "./ineo set-port twitter 1" \
 "
-  The http port was successfully changed to '1'.
+  ${GREEN}The http port was successfully changed to ${BOLD}1${GREEN}.${NF}
 "
 
     assert_raises "./ineo set-port twitter 65535" 0
     assert        "./ineo set-port twitter 65535" \
 "
-  The http port was successfully changed to '65535'.
+  ${GREEN}The http port was successfully changed to ${BOLD}65535${GREEN}.${NF}
 "
 
   # Test https port
     assert_raises "./ineo set-port -s twitter 1" 0
     assert        "./ineo set-port -s twitter 1" \
 "
-  The https port was successfully changed to '1'.
+  ${GREEN}The https port was successfully changed to ${BOLD}1${GREEN}.${NF}
 "
 
     assert_raises "./ineo set-port -s twitter 65535" 0
     assert        "./ineo set-port -s twitter 65535" \
 "
-  The https port was successfully changed to '65535'.
+  ${GREEN}The https port was successfully changed to ${BOLD}65535${GREEN}.${NF}
 "
   done
   assert_end SetPortCorrectly
@@ -1522,10 +1519,10 @@ ClearDataWithIncorrectParameters() {
     assert_raises "./ineo delete-db ${params[i]}" 1
     assert        "./ineo delete-db ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'delete-db' type:
-  ineo help delete-db
+  ${NF}View help about the command ${UNDERLINE}delete-db${NF} typing:
+    ${CYAN}ineo help delete-db${NF}
 "
   done
 
@@ -1545,10 +1542,10 @@ ClearDataWithoutTheRequireParameters() {
   assert_raises "./ineo delete-db" 1
   assert        "./ineo delete-db" \
 "
-  ERROR: delete-db requires an instance name!
+  ${PURPLE}Error -> ${BOLD}delete-db${PURPLE} requires an instance name
 
-  For help about the command 'delete-db' type:
-  ineo help delete-db
+  ${NF}View help about the command ${UNDERLINE}delete-db${NF} typing:
+    ${CYAN}ineo help delete-db${NF}
 "
 
   assert_end ClearDataWithoutTheRequireParameters
@@ -1565,9 +1562,10 @@ ClearDataOnANonExistentInstance() {
   assert_raises "./ineo delete-db twitter" 1
   assert        "./ineo delete-db twitter" \
 "
-  ERROR: There is not an instance with the name 'twitter' or is not properly installed!
+  ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter${PURPLE} or is not properly installed
 
-  Use 'ineo instances' to list the instances installed
+  ${NF}List installed instances typing:
+    ${CYAN}ineo instances${NF}
 "
 
   assert_end ClearDataOnANonExistentInstance
@@ -1598,10 +1596,10 @@ ClearDataCorrectly() {
 
     assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
-  WARNING: delete-db on the instance 'twitter' will remove all data for this instance!
+  ${YELLOW}Warning -> ${RED}delete-db${YELLOW} on the instance ${BOLD}twitter${YELLOW} will remove all data for this instance${NF}
 
 
-  The data for the instance 'twitter' was successfully removed.
+  ${GREEN}The data for the instance ${BOLD}twitter${GREEN} was successfully removed${NF}
 "
 
     assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
@@ -1639,7 +1637,7 @@ ClearDataCorrectly() {
 
     assert "./ineo delete-db -f twitter" \
 "
-  The data for the instance 'twitter' was successfully removed.
+  ${GREEN}The data for the instance ${BOLD}twitter${GREEN} was successfully removed${NF}
 "
 
     assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
@@ -1683,10 +1681,10 @@ ClearDataCorrectlyWithoutADatabaseFile() {
 
     assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
-  WARNING: delete-db on the instance 'twitter' will remove all data for this instance!
+  ${YELLOW}Warning -> ${RED}delete-db${YELLOW} on the instance ${BOLD}twitter${YELLOW} will remove all data for this instance${NF}
 
 
-  INFO: There is not a database on the instance 'twitter', so nothing was removed.
+  There is not a database on the instance ${UNDERLINE}twitter${NF}, so nothing was removed
 "
 
     # Test confirming with an instance running
@@ -1708,7 +1706,7 @@ ClearDataCorrectlyWithoutADatabaseFile() {
 
     assert "./ineo delete-db -f twitter" \
 "
-  INFO: There is not a database on the instance 'twitter', so nothing was removed.
+  There is not a database on the instance ${UNDERLINE}twitter${NF}, so nothing was removed
 "
 
     # Test forcing with an instance running
@@ -1748,10 +1746,10 @@ UpdateWithIncorrectParameters() {
     assert_raises "./ineo update ${params[i]}" 1
     assert        "./ineo update ${params[i]}" \
 "
-  ERROR: Invalid argument or option: ${params[i+1]}!
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
 
-  For help about the command 'update' type:
-  ineo help update
+  ${NF}View help about the command ${UNDERLINE}update${NF} typing:
+    ${CYAN}ineo help update${NF}
 "
   done
 
@@ -1773,7 +1771,7 @@ UpdateCorrectly() {
 
   assert "./ineo update" \
 "
-  Ineo was successfully upgraded from $old_version to x.x.x
+  ${GREEN}Ineo was successfully upgraded from ${BOLD}$old_version${GREEN} to ${BOLD}x.x.x${NF}
 "
 
   assert_raises "test $(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo) = 'x.x.x'" 0
