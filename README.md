@@ -1,5 +1,7 @@
 # ineo
 
+[![Join the chat at https://gitter.im/cohesivestack/ineo](https://badges.gitter.im/cohesivestack/ineo.svg)](https://gitter.im/cohesivestack/ineo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 A simple but useful Neo4j instance manager.
 
 Neo4j is a great graph database, however its architecture was designed to work with just one database for each Neo4j server instance. This issue could be a problem when we are developing an application with an environment for testing and developing, or just when we are creating or serving two or more applications.
