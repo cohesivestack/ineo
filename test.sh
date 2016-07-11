@@ -53,8 +53,7 @@ fi
 
 # If is all then test with all Neo4j versions
 if [ ${versions[0]} == 'all' ]; then
-  #versions=(1.8.3 1.9.9 2.0.5 2.1.8 2.2.7 2.3.1)
-  versions=(2.3.1)
+  versions=(1.8.3 1.9.9 2.0.5 2.1.8 2.2.7 2.3.1)
 fi
 
 # On fake_neo4j_host is used to save cache tars
@@ -486,14 +485,14 @@ export INEO_HOME="$(pwd)/ineo_for_test"
 CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
   # The parameters to check are 'port' 'ssl port' 'version'
   local params=(
-    'twitter'                        '7474' '7475' "$LAST_VERSION"
-    '-p8484 twitter'                 '8484' '8485' "$LAST_VERSION"
-    '-s9495 twitter'                 '7474' '9495' "$LAST_VERSION"
-    '-p8484 -s9495 twitter'          '8484' '9495' "$LAST_VERSION"
-    '-v1.9.9 twitter'                '7474' '7475' '1.9.9'
-    '-p8484 -v1.9.9 twitter'         '8484' '8485' '1.9.9'
-    '-s9495 -v1.9.9 twitter'         '7474' '9495' '1.9.9'
-    '-p8484 -s9495 -v1.9.9 twitter'  '8484' '9495' '1.9.9'
+    'twitter'                                '7474' '7475' "$LAST_VERSION"
+    '-p8484 twitter'                         '8484' '8485' "$LAST_VERSION"
+    '-s9495 twitter'                         '7474' '9495' "$LAST_VERSION"
+    '-p8484 -s9495 twitter'                  '8484' '9495' "$LAST_VERSION"
+    "-v$LAST_VERSION twitter"                '7474' '7475' "$LAST_VERSION"
+    "-p8484 -v$LAST_VERSION twitter"         '8484' '8485' "$LAST_VERSION"
+    "-s9495 -v$LAST_VERSION twitter"         '7474' '9495' "$LAST_VERSION"
+    "-p8484 -s9495 -v$LAST_VERSION twitter"  '8484' '9495' "$LAST_VERSION"
   )
 
   local i
