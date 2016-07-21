@@ -766,6 +766,7 @@ ExecuteActionsCorrectly() {
 
     # start
     assert_raises "./ineo start twitter" 0
+    
     set_instance_pid twitter
     assert_run_pid $pid
 
