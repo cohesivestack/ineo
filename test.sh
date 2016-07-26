@@ -2,7 +2,7 @@
 
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
-LAST_VERSION='2.3.1'
+LAST_VERSION='3.0.3'
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -53,7 +53,7 @@ fi
 
 # If is all then test with all Neo4j versions
 if [ ${versions[0]} == 'all' ]; then
-  versions=(1.8.3 1.9.9 2.0.5 2.1.8 2.2.7 2.3.1)
+  versions=(1.9.9 2.0.5 2.1.8 2.2.10 2.3.6 3.0.3)
 fi
 
 # On fake_neo4j_host is used to save cache tars
@@ -92,9 +92,15 @@ set -e
 
 function set_instance_pid {
   local instance_name=$1
-  assert_raises \
-    "test -f $INEO_HOME/instances/$instance_name/data/neo4j-service.pid" 0
-  pid=$(head -n 1 $INEO_HOME/instances/$instance_name/data/neo4j-service.pid)
+  if [ -f $INEO_HOME/instances/$instance_name/data/neo4j-service.pid ]; then
+    assert_raises \
+      "test -f $INEO_HOME/instances/$instance_name/data/neo4j-service.pid" 0
+    pid=$(head -n 1 $INEO_HOME/instances/$instance_name/data/neo4j-service.pid)
+  else
+    assert_raises \
+      "test -f $INEO_HOME/instances/$instance_name/run/neo4j.pid" 0
+    pid=$(head -n 1 $INEO_HOME/instances/$instance_name/run/neo4j.pid)
+  fi
 }
 
 function assert_run_pid {
@@ -114,6 +120,51 @@ function assert_not_run_pid {
 function setup {
   rm -fr ineo_for_test
   assert_raises "test -d ineo_for_test" 1
+}
+
+# ==============================================================================
+# HELPER FUNCTIONS
+# ==============================================================================
+
+function get_running_message {
+  local version=$1
+  local instance=$2
+  local pid=$3
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    printf \
+"
+  status '$instance'
+  Neo4j Server is running at pid $pid
+"
+  else
+    printf \
+"
+  status '$instance'
+  Neo4j is running at pid $pid
+"
+  fi
+}
+
+function get_not_running_message {
+  local version=$1
+  local instance=$2
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    printf \
+"
+  status '$instance'
+  Neo4j Server is not running
+"
+  else
+    printf \
+"
+  status '$instance'
+  Neo4j is not running
+"
+  fi
 }
 
 # ==============================================================================
@@ -502,7 +553,12 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
     local port=${params[i+1]}
     local ssl_port=${params[i+2]}
     local version=${params[i+3]}
-    local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+    local major_version_number=${version%%.*}
+    if [ $major_version_number -lt 3 ]; then
+      local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+    else
+      local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf"
+    fi
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -513,6 +569,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
   ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully created.${NF}
 
 "
+
     # Ensure the correct neo4j version was downloaded
     assert_raises \
       "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$version-unix.tar.gz" 0
@@ -521,9 +578,17 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
     assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
     # Ensure the correct ports were set
-    assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
-    assert_raises \
-      "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+    if [ $major_version_number -lt 3 ]; then
+      assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
+
+      assert_raises \
+        "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+    else
+      assert_raises "grep -Fq dbms\.connector\.http\.address=0.0.0.0:$port $config" 0
+
+      assert_raises \
+        "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
+    fi
 
   done
 
@@ -538,7 +603,12 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
   for version in "${versions[@]}"; do
     setup
 
-    local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+    local major_version_number=${version%%.*}
+    if [ $major_version_number -lt 3 ]; then
+      local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+    else
+      local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf"
+    fi
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -556,10 +626,17 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
     assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
     # Ensure the correct ports were set
-    assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
-    assert_raises \
-      "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+    if [ $major_version_number -lt 3 ]; then
+      assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
 
+      assert_raises \
+        "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+    else
+      assert_raises "grep -Fq dbms\.connector\.http\.address=0.0.0.0:$port $config" 0
+
+      assert_raises \
+        "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
+    fi
   done
 
   assert_end CreateAnInstanceCorrectlyWithEveryVersion
@@ -771,10 +848,7 @@ ExecuteActionsCorrectly() {
 
     # status running
     assert "./ineo status twitter" \
-"
-  status 'twitter'
-  Neo4j Server is running at pid $pid
-"
+      "$(get_running_message $version twitter $pid)"
 
     # restart
     assert_raises "./ineo restart twitter" 0
@@ -783,10 +857,7 @@ ExecuteActionsCorrectly() {
 
     # status running
     assert "./ineo status twitter" \
-"
-  status 'twitter'
-  Neo4j Server is running at pid $pid
-"
+      "$(get_running_message $version twitter $pid)"
 
     # stop
     assert_raises "./ineo stop twitter" 0
@@ -794,10 +865,8 @@ ExecuteActionsCorrectly() {
 
     # status not running
     assert "./ineo status twitter" \
-"
-  status 'twitter'
-  Neo4j Server is not running
-"
+      "$(get_not_running_message $version twitter)"
+
   done
   assert_end ExecuteActionsCorrectly
 }
@@ -827,15 +896,12 @@ ExecuteActionsOnVariousInstancesCorrectly() {
     local pid_facebook=$pid
     assert_run_pid $pid_facebook
 
+    local facebook_message=
+
     # status running
     assert "./ineo status" \
-"
-  status 'facebook'
-  Neo4j Server is running at pid $pid_facebook
-
-  status 'twitter'
-  Neo4j Server is running at pid $pid_twitter
-"
+"$(get_running_message $version facebook $pid_facebook)
+$(get_running_message $version twitter $pid_twitter)"
 
     # restart
     assert_raises "echo -ne 'y\n' | ./ineo restart" 0
@@ -850,13 +916,8 @@ ExecuteActionsOnVariousInstancesCorrectly() {
 
     # status running
     assert "./ineo status" \
-"
-  status 'facebook'
-  Neo4j Server is running at pid $pid_facebook
-
-  status 'twitter'
-  Neo4j Server is running at pid $pid_twitter
-"
+"$(get_running_message $version facebook $pid_facebook)
+$(get_running_message $version twitter $pid_twitter)"
 
     # stop
     assert_raises "echo -ne 'y\n' | ./ineo stop" 0
@@ -865,13 +926,8 @@ ExecuteActionsOnVariousInstancesCorrectly() {
 
     # status not running
     assert "./ineo status" \
-"
-  status 'facebook'
-  Neo4j Server is not running
-
-  status 'twitter'
-  Neo4j Server is not running
-"
+"$(get_not_running_message $version facebook $pid_facebook)
+$(get_not_running_message $version twitter $pid_twitter)"
 
     # Test forcing with -q
 
@@ -888,13 +944,8 @@ ExecuteActionsOnVariousInstancesCorrectly() {
 
     # status running
     assert "./ineo status" \
-"
-  status 'facebook'
-  Neo4j Server is running at pid $pid_facebook
-
-  status 'twitter'
-  Neo4j Server is running at pid $pid_twitter
-"
+"$(get_running_message $version facebook $pid_facebook)
+$(get_running_message $version twitter $pid_twitter)"
 
     # restart
     assert_raises "./ineo restart -q" 0
@@ -909,13 +960,8 @@ ExecuteActionsOnVariousInstancesCorrectly() {
 
     # status running
     assert "./ineo status" \
-"
-  status 'facebook'
-  Neo4j Server is running at pid $pid_facebook
-
-  status 'twitter'
-  Neo4j Server is running at pid $pid_twitter
-"
+"$(get_running_message $version facebook $pid_facebook)
+$(get_running_message $version twitter $pid_twitter)"
 
     assert_raises "./ineo stop -q" 0
     assert_not_run_pid $pid_twitter
@@ -923,13 +969,8 @@ ExecuteActionsOnVariousInstancesCorrectly() {
 
     # status not running
     assert "./ineo status" \
-"
-  status 'facebook'
-  Neo4j Server is not running
-
-  status 'twitter'
-  Neo4j Server is not running
-"
+"$(get_not_running_message $version facebook $pid_facebook)
+$(get_not_running_message $version twitter $pid_twitter)"
   done
   assert_end ExecuteActionsOnVariousInstancesCorrectly
 }

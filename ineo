@@ -26,7 +26,7 @@ VERSION=1.1.0
 
 DEFAULT_HOME="$HOME/.ineo"
 
-DEFAULT_VERSION='2.3.1'
+DEFAULT_VERSION='3.0.3'
 
 DEFAULT_PORT='7474'
 
@@ -89,6 +89,52 @@ function invalid_command_param {
   printf "\n  ${PURPLE}Error -> Invalid argument or option ${BOLD}${param}\n"
   printf "\n  ${NF}View help about the command ${UNDERLINE}${command}${NF} typing:"
   printf "\n    ${CYAN}ineo help ${command}${NF}\n\n"
+}
+
+# ==============================================================================
+# IS INSTANCE RUNNING
+# ==============================================================================
+
+function is_instance_running {
+  local instance_name=$1
+  local version=$(head -n 1 $INEO_HOME/instances/$instance_name/.version)
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    if [ -f "$INEO_HOME/instances/${instance_name}/data/neo4j-service.pid" ]; then
+      exit 0
+    fi
+  elif [ -f "$INEO_HOME/instances/${instance_name}/run/neo4j.pid" ]; then
+    exit 0
+  fi
+  exit 1
+}
+
+# ==============================================================================
+# CONFIGURATION EXISTS
+# ==============================================================================
+
+function configuration_exists {
+  local instance_name=$1
+  local version=$(head -n 1 $INEO_HOME/instances/$instance_name/.version)
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    if [ -f "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties" ]; then
+      exit 0
+    fi
+  elif [ -f "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf" ]; then
+    exit 0
+  fi
+  exit 1
+}
+
+# ==============================================================================
+# GET_VERSION
+# ==============================================================================
+function get_version {
+  local instance_name=$1
+  echo "$(head -n 1 $INEO_HOME/instances/$instance_name/.version)"
 }
 
 # ==============================================================================
@@ -650,7 +696,7 @@ function destroy {
   fi
 
   # Check if the instance is running
-  if [ -f "$INEO_HOME/instances/${instance_name}/data/neo4j-service.pid" ]; then
+  if ( (is_instance_running $instance_name) ); then
 
     if [[ "$force" == false ]]; then
       printf "\n  ${YELLOW}Warning -> The instance ${RED}${instance_name}${YELLOW} is running.${NF}\n\n"
@@ -724,11 +770,12 @@ function instances {
 function set_port {
   local instance_name=$1
   local port=$2
+  local version=$(get_version $instance_name)
   local major_version_number=${version%%.*}
 
   if [ $major_version_number -lt 3 ]; then
     sed -i.bak "/^\(org\.neo4j\.server\.webserver\.port=\).*/s//\1$port/" \
-    ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+      ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
   else
     sed -i.bak "/dbms\.connector\.http\.address=/s/^#//" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
@@ -741,6 +788,7 @@ function set_port {
 function set_https_port {
   local instance_name=$1
   local port=$2
+  local version=$(get_version $instance_name)
   local major_version_number=${version%%.*}
 
   if [ $major_version_number -lt 3 ]; then
@@ -822,7 +870,9 @@ function set-port {
   fi
 
   # Check if the configuration file doesn't exists
-  if [ ! -f "$INEO_HOME/instances/${instance_name}/conf/neo4j-server.properties" ]; then
+  #echo "INSTANCE"
+  #echo "$(is_instance_running $instance_name)"
+  if ( ! (configuration_exists $instance_name) ); then
     printf "\n  ${PURPLE}Error -> There is not an instance with the name ${BOLD}${instance_name}${PURPLE} or is not properly installed\n"
     printf "\n  ${NF}List installed instances typing:"
     printf "\n    ${CYAN}ineo instances${NF}\n\n"
@@ -898,7 +948,7 @@ function delete-db {
   fi
 
   # Check if the instance is running
-  if [ -f "$INEO_HOME/instances/${instance_name}/data/neo4j-service.pid" ]; then
+  if ( (is_instance_running $instance_name) ); then
 
     if [[ "$force" == false ]]; then
       printf "\n  ${YELLOW}Warning -> The instance ${RED}${instance_name}${YELLOW} is running.${NF}\n\n"
@@ -960,7 +1010,7 @@ function versions {
 
   if [ ! -f $cache_file ] || [ ! -s $cache_file ] || [ "$update" == true ]; then
     while [ "$page" -eq 1 ] || [ ! -z "$fetch" ]; do
-      fetch="$(curl -s https://api.github.com/repos/neo4j/neo4j/releases?page=$page)"
+      fetch="$(curl -s https://api.github.com/repos/neo4j/neo4j/tags?page=$page)"
       fetch="$(echo $fetch | grep -o -E '"[0-9]+\.[0-9]+\.[0-9]+"' | sed 's/"/  /g')"
       releases+="$fetch\n"
       ((page++))
