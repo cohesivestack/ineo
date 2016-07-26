@@ -872,7 +872,6 @@ ExecuteActionsCorrectly() {
 }
 tests+=('ExecuteActionsCorrectly')
 
-
 ExecuteActionsOnVariousInstancesCorrectly() {
   local version
   for version in "${versions[@]}"; do
@@ -895,8 +894,6 @@ ExecuteActionsOnVariousInstancesCorrectly() {
     set_instance_pid facebook
     local pid_facebook=$pid
     assert_run_pid $pid_facebook
-
-    local facebook_message=
 
     # status running
     assert "./ineo status" \
