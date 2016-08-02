@@ -86,6 +86,13 @@ set -e
 # Load assert.sh library (More info: http://github.com/lehmannro/assert.sh)
 . assert.sh
 
+# Set the variables to create instances
+# ------------------------------------------------------------------------------
+
+export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
+export INEO_HOSTNAME="file:///$(pwd)/fake_ineo_host"
+export INEO_HOME="$(pwd)/ineo_for_test"
+
 # ==============================================================================
 # PID FUNCTIONS
 # ==============================================================================
@@ -526,33 +533,68 @@ CreateWithIncorrectParameters() {
 }
 tests+=('CreateWithIncorrectParameters')
 
-# Set the variables to create instances
-# ------------------------------------------------------------------------------
 
-export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
-export INEO_HOSTNAME="file:///$(pwd)/fake_ineo_host"
-export INEO_HOME="$(pwd)/ineo_for_test"
-
-CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
-  # The parameters to check are 'port' 'ssl port' 'version'
+CreateWithBoltPortOnIncorrectVersion() {
   local params=(
-    'twitter'                                '7474' '7475' "$LAST_VERSION"
-    '-p8484 twitter'                         '8484' '8485' "$LAST_VERSION"
-    '-s9495 twitter'                         '7474' '9495' "$LAST_VERSION"
-    '-p8484 -s9495 twitter'                  '8484' '9495' "$LAST_VERSION"
-    "-v$LAST_VERSION twitter"                '7474' '7475' "$LAST_VERSION"
-    "-p8484 -v$LAST_VERSION twitter"         '8484' '8485' "$LAST_VERSION"
-    "-s9495 -v$LAST_VERSION twitter"         '7474' '9495' "$LAST_VERSION"
-    "-p8484 -s9495 -v$LAST_VERSION twitter"  '8484' '9495' "$LAST_VERSION"
+    "-b8486 -v2.3.1 facebook"
+    "-p7474 -b8486 -v2.3.1 facebook"
+    "-p7474 -s7475 -b8486 -v2.3.1 facebook"
   )
 
   local i
-  for ((i=0; i<${#params[*]}; i+=4)); do
+  for ((i=0; i<${#params[*]}; i+=1)); do
+    setup
+
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+    assert_raises "./ineo create ${params[i]}" 1
+    assert        "./ineo create ${params[i]}" \
+"
+  ${PURPLE}Error -> Bolt port only works on Neo4j 3.0 or higher
+
+  ${NF}View help about the command ${UNDERLINE}create${NF} typing:
+    ${CYAN}ineo help create${NF}
+"
+  done
+
+  assert_end CreateWithBoltPortOnIncorrectVersion
+}
+tests+=('CreateWithBoltPortOnIncorrectVersion')
+
+
+CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
+  # The parameters to check are 'port' 'ssl port' 'bolt port' 'version'
+  local params=(
+    'twitter'                                       '7474' '7475' '7476' "$LAST_VERSION"
+    '-p8484 twitter'                                '8484' '8485' '8486' "$LAST_VERSION"
+    '-s9495 twitter'                                '7474' '9495' '9496' "$LAST_VERSION"
+    '-b9496 twitter'                                '7474' '7475' '9496' "$LAST_VERSION"
+    '-p9494 -s8484 twitter'                         '9494' '8484' '9495' "$LAST_VERSION"
+    '-s8484 -b9496 twitter'                         '7474' '8484' '9496' "$LAST_VERSION"
+    '-p8484 -s9495 -b9499 twitter'                  '8484' '9495' '9499' "$LAST_VERSION"
+    "-v$LAST_VERSION twitter"                       '7474' '7475' '7476' "$LAST_VERSION"
+    "-p8484 -v$LAST_VERSION twitter"                '8484' '8485' '8486' "$LAST_VERSION"
+    "-s9495 -v$LAST_VERSION twitter"                '7474' '9495' '9496' "$LAST_VERSION"
+    "-b9496 -v$LAST_VERSION twitter"                '7474' '7475' '9496' "$LAST_VERSION"
+    "-p9494 -s8484 -v$LAST_VERSION twitter"         '9494' '8484' '9495' "$LAST_VERSION"
+    "-p8484 -b9496 -v$LAST_VERSION twitter"         '8484' '8485' '9496' "$LAST_VERSION"
+    "-s8484 -b9496 -v$LAST_VERSION twitter"         '7474' '8484' '9496' "$LAST_VERSION"
+    "-p8484 -s9494 -b9496 -v$LAST_VERSION twitter"  '8484' '9494' '9496' "$LAST_VERSION"
+    '-v2.3.1 twitter'                               '7474' '7475' '' "2.3.1"
+    '-p8484 -v2.3.1 twitter'                        '8484' '8485' '' "2.3.1"
+    '-s9495 -v2.3.1 twitter'                        '7474' '9495' '' "2.3.1"
+    '-p9494 -s8484 -v2.3.1 twitter'                 '9494' '8484' '' "2.3.1"
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=5)); do
     setup
 
     local port=${params[i+1]}
     local ssl_port=${params[i+2]}
-    local version=${params[i+3]}
+    local bolt_port=${params[i+3]}
+    local version=${params[i+4]}
     local major_version_number=${version%%.*}
     if [ $major_version_number -lt 3 ]; then
       local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
@@ -588,6 +630,9 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
 
       assert_raises \
         "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
+
+      assert_raises \
+        "grep -Fq dbms\.connector\.bolt\.address=0.0.0.0:$bolt_port $config" 0
     fi
 
   done
@@ -1495,6 +1540,52 @@ SetPortWithAnIncorrectOutOfRangePort() {
 tests+=('SetPortWithAnIncorrectOutOfRangePort')
 
 
+SetBoltPortWithIncorrectVersion() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  # Create a instance with version 2.3.1 but Bolt port only works on version
+  # 3.0 or higher
+  assert_raises "./ineo create -v 2.3.1 twitter" 0
+
+  assert_raises "./ineo set-port -b twitter 7575" 1
+  assert        "./ineo set-port -b twitter 7474" \
+"
+  ${PURPLE}Error -> Bolt port only works with Neo4j 3.0 or higher
+
+  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
+    ${CYAN}ineo help set-port${NF}
+"
+
+  assert_end SetBoltPortWithIncorrectVersion
+}
+tests+=('SetBoltPortWithIncorrectVersion')
+
+
+SetBoltAndSslPortAtTheSameTime() {
+  setup
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create -v 3.0.0 twitter" 0
+
+  assert_raises "./ineo set-port -s -b twitter 7575" 1
+  assert        "./ineo set-port -s -b twitter 7474" \
+"
+  ${PURPLE}Error -> ${BOLD}set-port${PURPLE} can't set bolt and ssl port at the same time
+
+  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
+    ${CYAN}ineo help set-port${NF}
+"
+
+  assert_end SetBoltAndSslPortAtTheSameTime
+}
+tests+=('SetBoltAndSslPortAtTheSameTime')
+
+
 SetPortCorrectly() {
   local version
   for version in "${versions[@]}"; do
@@ -1518,7 +1609,7 @@ SetPortCorrectly() {
   ${GREEN}The http port was successfully changed to ${BOLD}65535${GREEN}.${NF}
 "
 
-  # Test https port
+    # Test https port
     assert_raises "./ineo set-port -s twitter 1" 0
     assert        "./ineo set-port -s twitter 1" \
 "
@@ -1530,6 +1621,21 @@ SetPortCorrectly() {
 "
   ${GREEN}The https port was successfully changed to ${BOLD}65535${GREEN}.${NF}
 "
+
+    # Test bolt port
+    if [ ${version%%.*} -gt 2 ]; then
+      assert_raises "./ineo set-port -b twitter 1" 0
+      assert        "./ineo set-port -b twitter 1" \
+"
+  ${GREEN}The bolt port was successfully changed to ${BOLD}1${GREEN}.${NF}
+"
+
+      assert_raises "./ineo set-port -b twitter 65535" 0
+      assert        "./ineo set-port -b twitter 65535" \
+"
+  ${GREEN}The bolt port was successfully changed to ${BOLD}65535${GREEN}.${NF}
+"
+    fi
   done
   assert_end SetPortCorrectly
 }

@@ -388,7 +388,6 @@ function update_script_batch {
 
 function create {
   local port=$DEFAULT_PORT
-  local bolt_port=$DEFAULT_BOLT_PORT
   local version=$DEFAULT_VERSION
   local edition=$DEFAULT_EDITION
   local force_download=false
@@ -396,17 +395,17 @@ function create {
   local allow_external_connections=false
 
   shift
-  while getopts ":p:s:v:e:b:adf" optname
+  while getopts ":p:s:b:v:e:adf" optname
   do
     case "${optname}" in
       p)
         port=${OPTARG}
         ;;
-      b)
-        bolt_port=${OPTARG}
-        ;;
       s)
         https_port=${OPTARG}
+        ;;
+      b)
+        bolt_port=${OPTARG}
         ;;
       v)
         version=${OPTARG}
@@ -441,6 +440,14 @@ function create {
   # The action create always requires an instance name
   if [[ -z "$instance_name" ]]; then
     printf "\n  ${PURPLE}Error -> create requires an instance name\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}create${NF} typing:"
+    printf "\n    ${CYAN}ineo help create${NF}\n\n"
+    exit 1
+  fi
+
+  # Bolt port only works with Neo4j version 3.0 or higher
+  if [ ${version%%.*} -lt 3 ] && [ $bolt_port ]; then
+    printf "\n  ${PURPLE}Error -> Bolt port only works on Neo4j 3.0 or higher\n"
     printf "\n  ${NF}View help about the command ${UNDERLINE}create${NF} typing:"
     printf "\n    ${CYAN}ineo help create${NF}\n\n"
     exit 1
@@ -484,8 +491,11 @@ function create {
   # Finnaly move the instance for installation
   mv ${TEMP_DIR}/${version}/neo4j-${edition}-${version} ${INEO_HOME}/instances/${instance_name}
 
-  # Set the port on the configuration file
+  # If https or bolt port is not configured, then set them incrementally
   https_port=${https_port:-$((${port} + 1))}
+  bolt_port=${bolt_port:-$(((${https_port} > ${port} ? ${https_port} : ${port}) + 1))}
+
+  # Set the port on the configuration file
   set_port $instance_name $port
   set_https_port $instance_name $https_port
   set_bolt_port $instance_name $bolt_port
@@ -817,25 +827,27 @@ function set_bolt_port {
   local instance_name=$1
   local port=$2
 
-  if [ $(get_major_version $instance_name) -gt 2 ]; then
-    sed -i.bak "/dbms\.connector\.bolt\.address=/s/^#//" \
-      ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+  sed -i.bak "/dbms\.connector\.bolt\.address=/s/^#//" \
+    ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
 
-    sed -i.bak "/dbms\.connector\.bolt\.address=/s/[0-9][0-9][0-9][0-9]/$port/" \
-      ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
-  fi
+  sed -i.bak "/dbms\.connector\.bolt\.address=/s/[0-9][0-9][0-9][0-9]/$port/" \
+    ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
 }
 
 # Command
 function set-port {
   local https=false
+  local bolt=false
 
   shift
-  while getopts ":s" optname
+  while getopts ":sb" optname
   do
     case "${optname}" in
       s)
         https=true
+        ;;
+      b)
+        bolt=true
         ;;
       *)
         invalid_command_param $OPTARG 'set-port'
@@ -845,6 +857,20 @@ function set-port {
   done
 
   local instance_name=${@:$OPTIND:1}
+
+  if [ $(get_major_version $instance_name) -lt 3 ] && [ "$bolt" == true ]; then
+    printf "\n  ${PURPLE}Error -> Bolt port only works with Neo4j 3.0 or higher\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:"
+    printf "\n    ${CYAN}ineo help set-port${NF}\n\n"
+    exit 1
+  fi
+
+  if [ "$https" == true ] && [ "$bolt" == true ]; then
+    printf "\n  ${PURPLE}Error -> ${BOLD}set-port${PURPLE} can't set bolt and ssl port at the same time\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:"
+    printf "\n    ${CYAN}ineo help set-port${NF}\n\n"
+    exit 1
+  fi
 
   shift
   local port=${@:$OPTIND:1}
@@ -889,6 +915,11 @@ function set-port {
     set_port $instance_name $port
 
     printf "\n  ${GREEN}The https port was successfully changed to ${BOLD}$port${GREEN}.${NF}\n\n"
+
+  elif [[ "$bolt" == true ]]; then
+    set_bolt_port $instance_name $port
+
+    printf "\n  ${GREEN}The bolt port was successfully changed to ${BOLD}$port${GREEN}.${NF}\n\n"
   else
     set_https_port $instance_name $port
 
@@ -1108,6 +1139,11 @@ HELP_CREATE="
 
                   Default: <port>+1 (7475 when port is 7474)
 
+    -b <port>     Bolt port for the Neo4j instance
+
+                  Default: <higher port number>+1
+                  Note: Only works on Neo4j version 3.0 or higher
+
     -v <version>  The Neo4j version for the instance
 
                   Default: $DEFAULT_VERSION
@@ -1127,6 +1163,10 @@ HELP_SET_PORT="
 
   OPTIONS:
     -s    Use this option to change the SSL port
+
+    -b    Use this option to change the Bolt port
+
+          Note: Bolt port only works on Neo4j version 3.0 or higher
 
 "
 
