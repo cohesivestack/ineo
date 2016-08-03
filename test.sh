@@ -2,6 +2,7 @@
 
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
+DEFAULT_EDITION='all'
 LAST_VERSION='3.0.3'
 
 # Regular Colors
@@ -27,13 +28,17 @@ NF='\033[0m'
 # ==============================================================================
 
 versions=()
+editions=()
 tests=()
 
-while getopts ":v:" optname
+while getopts ":v:e:" optname
 do
   case "${optname}" in
     v)
       versions+=( ${OPTARG} )
+      ;;
+    e)
+      editions+=( ${OPTARG} )
       ;;
     *)
       echo "Invalid parameters"
@@ -48,12 +53,22 @@ test_name=${@:$OPTIND:1}
 # version
 if [ ${#versions[@]} -eq 0 ]; then
   versions=("$DEFAULT_VERSION")
-
 fi
 
 # If is all then test with all Neo4j versions
 if [ ${versions[0]} == 'all' ]; then
-  versions=(1.9.9 2.0.5 2.1.8 2.2.10 2.3.6 3.0.3)
+  versions=(1.9.9 2.3.6 3.0.3)
+fi
+
+# If there are not any argument specified then test just with default Neo4j
+# edition
+if [ ${#editions[@]} -eq 0 ]; then
+  editions=("$DEFAULT_EDITION")
+fi
+
+# If is all then test with all Neo4j editions
+if [ ${editions[0]} == 'all' ]; then
+  editions=(community enterprise)
 fi
 
 # On fake_neo4j_host is used to save cache tars
@@ -62,16 +77,18 @@ mkdir -p fake_neo4j_host
 # If some Neo4J version has not been downloaded then try to download it, so can
 # test locally reducing remote http requests.
 for version in "${versions[@]}"; do
-  tar_name="neo4j-community-$version-unix.tar.gz"
-  if [ ! -f fake_neo4j_host/${tar_name} ]; then
-    printf "\n\nDownloading ${version}\n\n"
-    if ! curl -f -o /tmp/${$}.${tar_name} ${NEO4J_HOSTNAME}/${tar_name}; then
-      printf "\n\nError downloading ${version}\nThe test has been aborted!!!\n"
-      exit 0
-    fi
+  for edition in "${editions[@]}"; do
+    tar_name="neo4j-$edition-$version-unix.tar.gz"
+    if [ ! -f fake_neo4j_host/${tar_name} ]; then
+      printf "\n\nDownloading ${edition} ${version}\n\n"
+      if ! curl -f -o /tmp/${$}.${tar_name} ${NEO4J_HOSTNAME}/${tar_name}; then
+        printf "\n\nError downloading ${edition} ${version}\nThe test has been aborted!!!\n"
+        exit 0
+      fi
 
-    mv /tmp/${$}.${tar_name} fake_neo4j_host/${tar_name}
-  fi
+      mv /tmp/${$}.${tar_name} fake_neo4j_host/${tar_name}
+    fi
+  done
 done
 
 # fake_ineo_host is used to make a fake update on tests, this will be the last
@@ -536,9 +553,9 @@ tests+=('CreateWithIncorrectParameters')
 
 CreateWithBoltPortOnIncorrectVersion() {
   local params=(
-    "-b8486 -v2.3.1 facebook"
-    "-p7474 -b8486 -v2.3.1 facebook"
-    "-p7474 -s7475 -b8486 -v2.3.1 facebook"
+    "-b8486 -v2.3.6 facebook"
+    "-p7474 -b8486 -v2.3.6 facebook"
+    "-p7474 -s7475 -b8486 -v2.3.6 facebook"
   )
 
   local i
@@ -581,10 +598,10 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
     "-p8484 -b9496 -v$LAST_VERSION twitter"         '8484' '8485' '9496' "$LAST_VERSION"
     "-s8484 -b9496 -v$LAST_VERSION twitter"         '7474' '8484' '9496' "$LAST_VERSION"
     "-p8484 -s9494 -b9496 -v$LAST_VERSION twitter"  '8484' '9494' '9496' "$LAST_VERSION"
-    '-v2.3.1 twitter'                               '7474' '7475' '' "2.3.1"
-    '-p8484 -v2.3.1 twitter'                        '8484' '8485' '' "2.3.1"
-    '-s9495 -v2.3.1 twitter'                        '7474' '9495' '' "2.3.1"
-    '-p9494 -s8484 -v2.3.1 twitter'                 '9494' '8484' '' "2.3.1"
+    '-v2.3.6 twitter'                               '7474' '7475' '' "2.3.6"
+    '-p8484 -v2.3.6 twitter'                        '8484' '8485' '' "2.3.6"
+    '-s9495 -v2.3.6 twitter'                        '7474' '9495' '' "2.3.6"
+    '-p9494 -s8484 -v2.3.6 twitter'                 '9494' '8484' '' "2.3.6"
   )
 
   local i
@@ -646,42 +663,44 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
 
   local version
   for version in "${versions[@]}"; do
-    setup
+    for edition in "${editions[@]}"; do
+      setup
 
-    local major_version_number=${version%%.*}
-    if [ $major_version_number -lt 3 ]; then
-      local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
-    else
-      local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf"
-    fi
+      local major_version_number=${version%%.*}
+      if [ $major_version_number -lt 3 ]; then
+        local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
+      else
+        local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf"
+      fi
 
-    # Make an installation
-    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-    # Create the instance
-    assert "./ineo create -p8484 -s9495 -v $version twitter" \
+      # Create the instance
+      assert "./ineo create -e $edition -p8484 -s9495 -v $version twitter" \
 "
   ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully created.${NF}
 "
-    # Ensure the correct neo4j version was downloaded
-    assert_raises \
-      "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$version-unix.tar.gz" 0
-
-    # Ensure neo4j exists
-    assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
-
-    # Ensure the correct ports were set
-    if [ $major_version_number -lt 3 ]; then
-      assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
-
+      # Ensure the correct neo4j version was downloaded
       assert_raises \
-        "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
-    else
-      assert_raises "grep -Fq dbms\.connector\.http\.address=0.0.0.0:$port $config" 0
+        "test -f $(pwd)/ineo_for_test/neo4j/neo4j-$edition-$version-unix.tar.gz" 0
 
-      assert_raises \
-        "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
-    fi
+      # Ensure neo4j exists
+      assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
+
+      # Ensure the correct ports were set
+      if [ $major_version_number -lt 3 ]; then
+        assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
+
+        assert_raises \
+          "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+      else
+        assert_raises "grep -Fq dbms\.connector\.http\.address=0.0.0.0:$port $config" 0
+
+        assert_raises \
+          "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
+      fi
+    done
   done
 
   assert_end CreateAnInstanceCorrectlyWithEveryVersion
@@ -879,39 +898,41 @@ tests+=('ActionsOnANotProperlyInstalledInstance')
 ExecuteActionsCorrectly() {
   local version
   for version in "${versions[@]}"; do
-    setup
+    for edition in "${editions[@]}"; do
+      setup
 
-    # Make an installation
-    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-    assert_raises "./ineo create -v $version twitter" 0
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
 
-    # start
-    assert_raises "./ineo start twitter" 0
-    set_instance_pid twitter
-    assert_run_pid $pid
+      # start
+      assert_raises "./ineo start twitter" 0
+      set_instance_pid twitter
+      assert_run_pid $pid
 
-    # status running
-    assert "./ineo status twitter" \
-      "$(get_running_message $version twitter $pid)"
+      # status running
+      assert "./ineo status twitter" \
+        "$(get_running_message $version twitter $pid)"
 
-    # restart
-    assert_raises "./ineo restart twitter" 0
-    set_instance_pid twitter
-    assert_run_pid $pid
+      # restart
+      assert_raises "./ineo restart twitter" 0
+      set_instance_pid twitter
+      assert_run_pid $pid
 
-    # status running
-    assert "./ineo status twitter" \
-      "$(get_running_message $version twitter $pid)"
+      # status running
+      assert "./ineo status twitter" \
+        "$(get_running_message $version twitter $pid)"
 
-    # stop
-    assert_raises "./ineo stop twitter" 0
-    assert_not_run_pid $pid
+      # stop
+      assert_raises "./ineo stop twitter" 0
+      assert_not_run_pid $pid
 
-    # status not running
-    assert "./ineo status twitter" \
-      "$(get_not_running_message $version twitter)"
+      # status not running
+      assert "./ineo status twitter" \
+        "$(get_not_running_message $version twitter)"
 
+    done
   done
   assert_end ExecuteActionsCorrectly
 }
@@ -919,100 +940,104 @@ tests+=('ExecuteActionsCorrectly')
 
 ExecuteActionsOnVariousInstancesCorrectly() {
   local version
+  #local editions=(community)
   for version in "${versions[@]}"; do
-    setup
+    for edition in "${editions[@]}"; do
+      echo "$edition $version"
+      setup
 
-    # Make an installation
-    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-    # Test confirming
-    assert_raises "./ineo create -p7474 -v $version twitter" 0
-    assert_raises "./ineo create -p7476 -v $version facebook" 0
+      # Test confirming
+      assert_raises "./ineo create -p7474 -e $edition -v $version twitter" 0
+      assert_raises "./ineo create -p8484 -e $edition -v $version facebook" 0
 
-    # start
-    assert_raises "echo -ne 'y\n' | ./ineo start" 0
+      # start
+      assert_raises "echo -ne 'y\n' | ./ineo start" 0
 
-    set_instance_pid twitter
-    local pid_twitter=$pid
-    assert_run_pid $pid_twitter
+      set_instance_pid twitter
+      local pid_twitter=$pid
+      assert_run_pid $pid_twitter
 
-    set_instance_pid facebook
-    local pid_facebook=$pid
-    assert_run_pid $pid_facebook
+      set_instance_pid facebook
+      local pid_facebook=$pid
+      assert_run_pid $pid_facebook
 
-    # status running
-    assert "./ineo status" \
+      # status running
+      assert "./ineo status" \
 "$(get_running_message $version facebook $pid_facebook)
 $(get_running_message $version twitter $pid_twitter)"
 
-    # restart
-    assert_raises "echo -ne 'y\n' | ./ineo restart" 0
+      # restart
+      assert_raises "echo -ne 'y\n' | ./ineo restart" 0
 
-    set_instance_pid twitter
-    pid_twitter=$pid
-    assert_run_pid $pid_twitter
+      set_instance_pid twitter
+      pid_twitter=$pid
+      assert_run_pid $pid_twitter
 
-    set_instance_pid facebook
-    pid_facebook=$pid
-    assert_run_pid $pid_facebook
+      set_instance_pid facebook
+      pid_facebook=$pid
+      assert_run_pid $pid_facebook
 
-    # status running
-    assert "./ineo status" \
+      # status running
+      assert "./ineo status" \
 "$(get_running_message $version facebook $pid_facebook)
 $(get_running_message $version twitter $pid_twitter)"
 
-    # stop
-    assert_raises "echo -ne 'y\n' | ./ineo stop" 0
-    assert_not_run_pid $pid_twitter
-    assert_not_run_pid $pid_facebook
+      # stop
+      assert_raises "echo -ne 'y\n' | ./ineo stop" 0
+      assert_not_run_pid $pid_twitter
+      assert_not_run_pid $pid_facebook
 
-    # status not running
-    assert "./ineo status" \
+      # status not running
+      assert "./ineo status" \
 "$(get_not_running_message $version facebook $pid_facebook)
 $(get_not_running_message $version twitter $pid_twitter)"
 
-    # Test forcing with -q
+      # Test forcing with -q
 
-    # start
-    assert_raises "./ineo start -q" 0
+      # start
+      assert_raises "./ineo start -q" 0
 
-    set_instance_pid twitter
-    pid_twitter=$pid
-    assert_run_pid $pid_twitter
+      set_instance_pid twitter
+      pid_twitter=$pid
+      assert_run_pid $pid_twitter
 
-    set_instance_pid facebook
-    pid_facebook=$pid
-    assert_run_pid $pid_facebook
+      set_instance_pid facebook
+      pid_facebook=$pid
+      assert_run_pid $pid_facebook
 
-    # status running
-    assert "./ineo status" \
+      # status running
+      assert "./ineo status" \
 "$(get_running_message $version facebook $pid_facebook)
 $(get_running_message $version twitter $pid_twitter)"
 
-    # restart
-    assert_raises "./ineo restart -q" 0
+      # restart
+      assert_raises "./ineo restart -q" 0
 
-    set_instance_pid twitter
-    pid_twitter=$pid
-    assert_run_pid $pid_twitter
+      set_instance_pid twitter
+      pid_twitter=$pid
+      assert_run_pid $pid_twitter
 
-    set_instance_pid facebook
-    pid_facebook=$pid
-    assert_run_pid $pid_facebook
+      set_instance_pid facebook
+      pid_facebook=$pid
+      assert_run_pid $pid_facebook
 
-    # status running
-    assert "./ineo status" \
+      # status running
+      assert "./ineo status" \
 "$(get_running_message $version facebook $pid_facebook)
 $(get_running_message $version twitter $pid_twitter)"
 
-    assert_raises "./ineo stop -q" 0
-    assert_not_run_pid $pid_twitter
-    assert_not_run_pid $pid_facebook
+      assert_raises "./ineo stop -q" 0
+      assert_not_run_pid $pid_twitter
+      assert_not_run_pid $pid_facebook
 
-    # status not running
-    assert "./ineo status" \
+      # status not running
+      assert "./ineo status" \
 "$(get_not_running_message $version facebook $pid_facebook)
 $(get_not_running_message $version twitter $pid_twitter)"
+    done
   done
   assert_end ExecuteActionsOnVariousInstancesCorrectly
 }
@@ -1050,16 +1075,17 @@ tests+=('InstancesWithIncorrectParameters')
 
 InstancesCorrectly() {
   for version in "${versions[@]}"; do
-    setup
+    for edition in "${editions[@]}"; do
+      setup
 
-    # Make an installation
-    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-    assert_raises "./ineo create -p7474 -s8484 -v $version twitter" 0
-    assert_raises "./ineo create -p7575 -s8585 -v $version facebook" 0
+      assert_raises "./ineo create -p7474 -s8484 -e $edition -v $version twitter" 0
+      assert_raises "./ineo create -p7575 -s8585 -e $edition -v $version facebook" 0
 
-    assert_raises "./ineo instances" 0
-    assert        "./ineo instances" \
+      assert_raises "./ineo instances" 0
+      assert        "./ineo instances" \
 "
   > instance 'facebook'
     VERSION: $version
@@ -1073,6 +1099,7 @@ InstancesCorrectly() {
     PORT:    7474
     HTTPS:   8484
 "
+    done
   done
 
   assert_end InstancesCorrectly
@@ -1342,19 +1369,20 @@ tests+=('DestroyANonExistentInstance')
 DestroyCorrectly() {
   local version
   for version in "${versions[@]}"; do
-    setup
+    for edition in "${editions[@]}"; do
+      setup
 
-    # Make an installation
-    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-    # Test confirming without an instance running
+      # Test confirming without an instance running
 
-    assert_raises "./ineo create -v $version twitter" 0
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
 
-    assert_raises "echo -ne 'y\n' | ./ineo destroy twitter" 0
+      assert_raises "echo -ne 'y\n' | ./ineo destroy twitter" 0
 
-    assert_raises "./ineo create -v $version twitter" 0
-    assert "echo -ne 'y\n' | ./ineo destroy twitter" \
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
+      assert "echo -ne 'y\n' | ./ineo destroy twitter" \
 "
   ${YELLOW}Warning -> Destroying the instance ${RED}twitter${YELLOW} will remove all data for this instance${NF}
 
@@ -1363,41 +1391,42 @@ DestroyCorrectly() {
   ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully destroyed.${NF}
 "
 
-    # Test confirming with an instance running
+      # Test confirming with an instance running
 
-    assert_raises "./ineo create -v $version twitter" 0
-    assert_raises "./ineo start twitter" 0
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
+      assert_raises "./ineo start twitter" 0
 
-    set_instance_pid twitter
-    assert_run_pid $pid
+      set_instance_pid twitter
+      assert_run_pid $pid
 
-    assert_raises "echo -ne 'y\ny\n' | ./ineo destroy twitter" 0
+      assert_raises "echo -ne 'y\ny\n' | ./ineo destroy twitter" 0
 
-    assert_not_run_pid $pid
+      assert_not_run_pid $pid
 
-    # Test forcing without an instance running
+      # Test forcing without an instance running
 
-    assert_raises "./ineo create -v $version twitter" 0
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
 
-    assert_raises "./ineo destroy -f twitter" 0
+      assert_raises "./ineo destroy -f twitter" 0
 
-    assert_raises "./ineo create -v $version twitter" 0
-    assert "./ineo destroy -f twitter" \
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
+      assert "./ineo destroy -f twitter" \
 "
   ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully destroyed.${NF}
 "
 
-    # Test forcing with an instance running
+      # Test forcing with an instance running
 
-    assert_raises "./ineo create -v $version twitter" 0
-    assert_raises "./ineo start twitter" 0
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
+      assert_raises "./ineo start twitter" 0
 
-    set_instance_pid twitter
-    assert_run_pid $pid
+      set_instance_pid twitter
+      assert_run_pid $pid
 
-    assert_raises "./ineo destroy -f twitter" 0
+      assert_raises "./ineo destroy -f twitter" 0
 
-    assert_not_run_pid $pid
+      assert_not_run_pid $pid
+    done
   done
   assert_end DestroyCorrectly
 }
@@ -1546,9 +1575,9 @@ SetBoltPortWithIncorrectVersion() {
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-  # Create a instance with version 2.3.1 but Bolt port only works on version
+  # Create a instance with version 2.3.6 but Bolt port only works on version
   # 3.0 or higher
-  assert_raises "./ineo create -v 2.3.1 twitter" 0
+  assert_raises "./ineo create -v 2.3.6 twitter" 0
 
   assert_raises "./ineo set-port -b twitter 7575" 1
   assert        "./ineo set-port -b twitter 7474" \
@@ -1589,53 +1618,55 @@ tests+=('SetBoltAndSslPortAtTheSameTime')
 SetPortCorrectly() {
   local version
   for version in "${versions[@]}"; do
-    setup
+    for edition in "${editions[@]}"; do
+      setup
 
-    # Make an installation
-    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-    # Test http port
-    assert_raises "./ineo create -v $version twitter" 0
+      # Test http port
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
 
-    assert_raises "./ineo set-port twitter 1" 0
-    assert        "./ineo set-port twitter 1" \
+      assert_raises "./ineo set-port twitter 1" 0
+      assert        "./ineo set-port twitter 1" \
 "
   ${GREEN}The http port was successfully changed to ${BOLD}1${GREEN}.${NF}
 "
 
-    assert_raises "./ineo set-port twitter 65535" 0
-    assert        "./ineo set-port twitter 65535" \
+      assert_raises "./ineo set-port twitter 65535" 0
+      assert        "./ineo set-port twitter 65535" \
 "
   ${GREEN}The http port was successfully changed to ${BOLD}65535${GREEN}.${NF}
 "
 
-    # Test https port
-    assert_raises "./ineo set-port -s twitter 1" 0
-    assert        "./ineo set-port -s twitter 1" \
+      # Test https port
+      assert_raises "./ineo set-port -s twitter 1" 0
+      assert        "./ineo set-port -s twitter 1" \
 "
   ${GREEN}The https port was successfully changed to ${BOLD}1${GREEN}.${NF}
 "
 
-    assert_raises "./ineo set-port -s twitter 65535" 0
-    assert        "./ineo set-port -s twitter 65535" \
+      assert_raises "./ineo set-port -s twitter 65535" 0
+      assert        "./ineo set-port -s twitter 65535" \
 "
   ${GREEN}The https port was successfully changed to ${BOLD}65535${GREEN}.${NF}
 "
 
-    # Test bolt port
-    if [ ${version%%.*} -gt 2 ]; then
-      assert_raises "./ineo set-port -b twitter 1" 0
-      assert        "./ineo set-port -b twitter 1" \
+      # Test bolt port
+      if [ ${version%%.*} -gt 2 ]; then
+        assert_raises "./ineo set-port -b twitter 1" 0
+        assert        "./ineo set-port -b twitter 1" \
 "
   ${GREEN}The bolt port was successfully changed to ${BOLD}1${GREEN}.${NF}
 "
 
-      assert_raises "./ineo set-port -b twitter 65535" 0
-      assert        "./ineo set-port -b twitter 65535" \
+        assert_raises "./ineo set-port -b twitter 65535" 0
+        assert        "./ineo set-port -b twitter 65535" \
 "
   ${GREEN}The bolt port was successfully changed to ${BOLD}65535${GREEN}.${NF}
 "
-    fi
+      fi
+    done
   done
   assert_end SetPortCorrectly
 }
@@ -1719,25 +1750,26 @@ tests+=('ClearDataOnANonExistentInstance')
 ClearDataCorrectly() {
   local version
   for version in "${versions[@]}"; do
-    setup
+    for edition in "${editions[@]}"; do
+      setup
 
-    # Make an installation
-    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-    # Test confirming without an instance running
+      # Test confirming without an instance running
 
-    assert_raises "./ineo create -v $version twitter" 0
-    # Create a fake directory
-    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
+      # Create a fake directory
+      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-    assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
+      assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
 
-    # Create a fake directory
-    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      # Create a fake directory
+      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-    assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
+      assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
   ${YELLOW}Warning -> ${RED}delete-db${YELLOW} on the instance ${BOLD}twitter${YELLOW} will remove all data for this instance${NF}
 
@@ -1745,62 +1777,63 @@ ClearDataCorrectly() {
   ${GREEN}The data for the instance ${BOLD}twitter${GREEN} was successfully removed${NF}
 "
 
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-    # Test confirming with an instance running
+      # Test confirming with an instance running
 
-    # Create a fake directory
-    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      # Create a fake directory
+      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-    assert_raises "./ineo start twitter" 0
+      assert_raises "./ineo start twitter" 0
 
-    set_instance_pid twitter
-    assert_run_pid $pid
+      set_instance_pid twitter
+      assert_run_pid $pid
 
-    assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
+      assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
 
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-    assert_not_run_pid $pid
+      assert_not_run_pid $pid
 
-    # Test forcing without an instance running
+      # Test forcing without an instance running
 
-    # Create a fake directory
-    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      # Create a fake directory
+      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-    assert_raises "./ineo delete-db -f twitter" 0
+      assert_raises "./ineo delete-db -f twitter" 0
 
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-    # Create a fake directory
-    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      # Create a fake directory
+      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-    assert "./ineo delete-db -f twitter" \
+      assert "./ineo delete-db -f twitter" \
 "
   ${GREEN}The data for the instance ${BOLD}twitter${GREEN} was successfully removed${NF}
 "
 
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-    # Test forcing with an instance running
+      # Test forcing with an instance running
 
-    # Create a fake directory
-    assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      # Create a fake directory
+      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
 
-    assert_raises "./ineo start twitter" 0
+      assert_raises "./ineo start twitter" 0
 
-    set_instance_pid twitter
-    assert_run_pid $pid
+      set_instance_pid twitter
+      assert_run_pid $pid
 
-    assert_raises "./ineo delete-db -f twitter" 0
+      assert_raises "./ineo delete-db -f twitter" 0
 
-    assert_not_run_pid $pid
+      assert_not_run_pid $pid
 
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+    done
   done
   assert_end ClearDataCorrectly
 }
@@ -1810,19 +1843,20 @@ tests+=('ClearDataCorrectly')
 ClearDataCorrectlyWithoutADatabaseFile() {
   local version
   for version in "${versions[@]}"; do
-    setup
+    for edition in "${editions[@]}"; do
+      setup
 
-    # Make an installation
-    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-    # Test confirming without an instance running
+      # Test confirming without an instance running
 
-    assert_raises "./ineo create -v $version twitter" 0
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-    assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
+      assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
 
-    assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
+      assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
   ${YELLOW}Warning -> ${RED}delete-db${YELLOW} on the instance ${BOLD}twitter${YELLOW} will remove all data for this instance${NF}
 
@@ -1830,40 +1864,41 @@ ClearDataCorrectlyWithoutADatabaseFile() {
   There is not a database on the instance ${UNDERLINE}twitter${NF}, so nothing was removed
 "
 
-    # Test confirming with an instance running
+      # Test confirming with an instance running
 
-    assert_raises "./ineo start twitter" 0
+      assert_raises "./ineo start twitter" 0
 
-    set_instance_pid twitter
-    assert_run_pid $pid
+      set_instance_pid twitter
+      assert_run_pid $pid
 
-    assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
+      assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
 
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
 
-    assert_not_run_pid $pid
+      assert_not_run_pid $pid
 
-    # Test forcing without an instance running
+      # Test forcing without an instance running
 
-    assert_raises "./ineo delete-db -f twitter" 0
+      assert_raises "./ineo delete-db -f twitter" 0
 
-    assert "./ineo delete-db -f twitter" \
+      assert "./ineo delete-db -f twitter" \
 "
   There is not a database on the instance ${UNDERLINE}twitter${NF}, so nothing was removed
 "
 
-    # Test forcing with an instance running
+      # Test forcing with an instance running
 
-    assert_raises "./ineo start twitter" 0
+      assert_raises "./ineo start twitter" 0
 
-    set_instance_pid twitter
-    assert_run_pid $pid
+      set_instance_pid twitter
+      assert_run_pid $pid
 
-    assert_raises "./ineo delete-db -f twitter" 0
+      assert_raises "./ineo delete-db -f twitter" 0
 
-    assert_not_run_pid $pid
+      assert_not_run_pid $pid
 
-    assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+    done
   done
   assert_end ClearDataCorrectlyWithoutADatabaseFile
 }
