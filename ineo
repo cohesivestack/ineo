@@ -453,6 +453,14 @@ function create {
     exit 1
   fi
 
+  # Edition must be either "community" or "enterprise"
+  if [ $edition != "community" ] && [ $edition != "enterprise" ]; then
+    printf "\n  ${PURPLE}Error -> Edition (-e) must be: 'community' or 'enterprise'\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}create${NF} typing:"
+    printf "\n    ${CYAN}ineo help create${NF}\n\n"
+    exit 1
+  fi
+
   local tar_name="neo4j-$edition-$version-unix.tar.gz"
 
   # Donwload and create tar if doesn't exists

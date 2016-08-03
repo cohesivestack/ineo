@@ -580,38 +580,73 @@ CreateWithBoltPortOnIncorrectVersion() {
 tests+=('CreateWithBoltPortOnIncorrectVersion')
 
 
-CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
-  # The parameters to check are 'port' 'ssl port' 'bolt port' 'version'
+CreateWithIncorrectEdition() {
   local params=(
-    'twitter'                                       '7474' '7475' '7476' "$LAST_VERSION"
-    '-p8484 twitter'                                '8484' '8485' '8486' "$LAST_VERSION"
-    '-s9495 twitter'                                '7474' '9495' '9496' "$LAST_VERSION"
-    '-b9496 twitter'                                '7474' '7475' '9496' "$LAST_VERSION"
-    '-p9494 -s8484 twitter'                         '9494' '8484' '9495' "$LAST_VERSION"
-    '-s8484 -b9496 twitter'                         '7474' '8484' '9496' "$LAST_VERSION"
-    '-p8484 -s9495 -b9499 twitter'                  '8484' '9495' '9499' "$LAST_VERSION"
-    "-v$LAST_VERSION twitter"                       '7474' '7475' '7476' "$LAST_VERSION"
-    "-p8484 -v$LAST_VERSION twitter"                '8484' '8485' '8486' "$LAST_VERSION"
-    "-s9495 -v$LAST_VERSION twitter"                '7474' '9495' '9496' "$LAST_VERSION"
-    "-b9496 -v$LAST_VERSION twitter"                '7474' '7475' '9496' "$LAST_VERSION"
-    "-p9494 -s8484 -v$LAST_VERSION twitter"         '9494' '8484' '9495' "$LAST_VERSION"
-    "-p8484 -b9496 -v$LAST_VERSION twitter"         '8484' '8485' '9496' "$LAST_VERSION"
-    "-s8484 -b9496 -v$LAST_VERSION twitter"         '7474' '8484' '9496' "$LAST_VERSION"
-    "-p8484 -s9494 -b9496 -v$LAST_VERSION twitter"  '8484' '9494' '9496' "$LAST_VERSION"
-    '-v2.3.6 twitter'                               '7474' '7475' '' "2.3.6"
-    '-p8484 -v2.3.6 twitter'                        '8484' '8485' '' "2.3.6"
-    '-s9495 -v2.3.6 twitter'                        '7474' '9495' '' "2.3.6"
-    '-p9494 -s8484 -v2.3.6 twitter'                 '9494' '8484' '' "2.3.6"
+    "-e lite facebook"
+    "-e free facebook"
+    "-e paid facebook"
+    "-e 1 facebook"
   )
 
   local i
-  for ((i=0; i<${#params[*]}; i+=5)); do
+  for ((i=0; i<${#params[*]}; i+=1)); do
+    setup
+
+    # Make an installation
+    assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+    assert_raises "./ineo create ${params[i]}" 1
+    assert        "./ineo create ${params[i]}" \
+"
+  ${PURPLE}Error -> Edition (-e) must be: 'community' or 'enterprise'
+
+  ${NF}View help about the command ${UNDERLINE}create${NF} typing:
+    ${CYAN}ineo help create${NF}
+"
+  done
+
+  assert_end CreateWithBoltPortOnIncorrectVersion
+}
+tests+=('CreateWithBoltPortOnIncorrectVersion')
+
+
+CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
+  # The parameters to check are 'port' 'ssl port' 'bolt port' 'version'
+  local params=(
+    'twitter'                                       '7474' '7475' '7476' "$LAST_VERSION" 'community'
+    '-p8484 twitter'                                '8484' '8485' '8486' "$LAST_VERSION" 'community'
+    '-s9495 twitter'                                '7474' '9495' '9496' "$LAST_VERSION" 'community'
+    '-b9496 twitter'                                '7474' '7475' '9496' "$LAST_VERSION" 'community'
+    '-p9494 -s8484 twitter'                         '9494' '8484' '9495' "$LAST_VERSION" 'community'
+    '-s8484 -b9496 twitter'                         '7474' '8484' '9496' "$LAST_VERSION" 'community'
+    '-p8484 -s9495 -b9499 twitter'                  '8484' '9495' '9499' "$LAST_VERSION" 'community'
+    "-v$LAST_VERSION twitter"                       '7474' '7475' '7476' "$LAST_VERSION" 'community'
+    "-v$LAST_VERSION -e enterprise twitter"         '7474' '7475' '7476' "$LAST_VERSION" 'enterprise'
+    "-v$LAST_VERSION -e community twitter"          '7474' '7475' '7476' "$LAST_VERSION" 'community'
+    "-p8484 -v$LAST_VERSION twitter"                '8484' '8485' '8486' "$LAST_VERSION" 'community'
+    "-s9495 -v$LAST_VERSION twitter"                '7474' '9495' '9496' "$LAST_VERSION" 'community'
+    "-b9496 -v$LAST_VERSION twitter"                '7474' '7475' '9496' "$LAST_VERSION" 'community'
+    "-p9494 -s8484 -v$LAST_VERSION twitter"         '9494' '8484' '9495' "$LAST_VERSION" 'community'
+    "-p8484 -b9496 -v$LAST_VERSION twitter"         '8484' '8485' '9496' "$LAST_VERSION" 'community'
+    "-s8484 -b9496 -v$LAST_VERSION twitter"         '7474' '8484' '9496' "$LAST_VERSION" 'community'
+    "-p8484 -s9494 -b9496 -v$LAST_VERSION twitter"  '8484' '9494' '9496' "$LAST_VERSION" 'community'
+    '-v2.3.6 twitter'                               '7474' '7475' '' "2.3.6" 'community'
+    '-v2.3.6 -e enterprise twitter'                 '7474' '7475' '' "2.3.6" 'enterprise'
+    '-v2.3.6 -e community twitter'                  '7474' '7475' '' "2.3.6" 'community'
+    '-p8484 -v2.3.6 twitter'                        '8484' '8485' '' "2.3.6" 'community'
+    '-s9495 -v2.3.6 twitter'                        '7474' '9495' '' "2.3.6" 'community'
+    '-p9494 -s8484 -v2.3.6 twitter'                 '9494' '8484' '' "2.3.6" 'community'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=6)); do
     setup
 
     local port=${params[i+1]}
     local ssl_port=${params[i+2]}
     local bolt_port=${params[i+3]}
     local version=${params[i+4]}
+    local edition=${params[i+5]}
     local major_version_number=${version%%.*}
     if [ $major_version_number -lt 3 ]; then
       local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
@@ -631,7 +666,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
 
     # Ensure the correct neo4j version was downloaded
     assert_raises \
-      "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$version-unix.tar.gz" 0
+      "test -f $(pwd)/ineo_for_test/neo4j/neo4j-$edition-$version-unix.tar.gz" 0
 
     # Ensure neo4j exists
     assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
@@ -943,7 +978,6 @@ ExecuteActionsOnVariousInstancesCorrectly() {
   #local editions=(community)
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      echo "$edition $version"
       setup
 
       # Make an installation
