@@ -141,7 +141,24 @@ function configuration_exists {
 
 function get_version {
   local instance_name=$1
-  echo $(head -n 1 $INEO_HOME/instances/$instance_name/.version)
+  if [ -f $INEO_HOME/instances/$instance_name/.version ]; then
+    echo $(head -n 1 $INEO_HOME/instances/$instance_name/.version)
+  else
+    echo 'unknown'
+  fi
+}
+
+# ==============================================================================
+# GET_EDITION
+# ==============================================================================
+
+function get_edition {
+  local instance_name=$1
+  if [ -f $INEO_HOME/instances/$instance_name/.edition ]; then
+    echo $(head -n 1 $INEO_HOME/instances/$instance_name/.edition)
+  else
+    echo 'unknown'
+  fi
 }
 
 # ==============================================================================
@@ -496,6 +513,9 @@ function create {
   # Create a hidden file with the version used in this installation
   echo $version > ${TEMP_DIR}/${version}/neo4j-${edition}-${version}/.version
 
+  # Create a hidden file with the edition used in this installation
+  echo $edition > ${TEMP_DIR}/${version}/neo4j-${edition}-${version}/.edition
+
   # Finnaly move the instance for installation
   mv ${TEMP_DIR}/${version}/neo4j-${edition}-${version} ${INEO_HOME}/instances/${instance_name}
 
@@ -506,7 +526,17 @@ function create {
   # Set the port on the configuration file
   set_port $instance_name $port
   set_https_port $instance_name $https_port
-  set_bolt_port $instance_name $bolt_port
+
+  if [ ${version%%.*} -gt 2 ]; then
+    set_bolt_port $instance_name $bolt_port
+  fi
+
+  # If version is less than 3 and is enterprise then disable the online backup
+  # by default
+  if [ ${version%%.*} -lt 3 ] && [ $edition == "enterprise" ]; then
+    sed -i.bak "/^\(online_backup_enabled=\).*/s//\1false/" \
+      ${INEO_HOME}/instances/${instance_name}/conf/neo4j.properties
+  fi
 
   # Set the webserver address in the configuration file
   if [ "$allow_external_connections" = true ] ; then
@@ -783,9 +813,11 @@ function instances {
       fi
 
       local version=$(get_version $instance_name)
+      local edition=$(get_edition $instance_name)
 
       printf "\n  > instance '$instance_name'"
       printf "\n    VERSION: ${version}"
+      printf "\n    EDITION: ${edition}"
       printf "\n    PATH:    ${INEO_HOME}/instances/${instance_name}"
       printf "\n    PORT:    ${port}"
       printf "\n    HTTPS:   ${ssl}\n"
@@ -828,7 +860,6 @@ function set_https_port {
     sed -i.bak "/dbms\.connector\.https\.address=/s/[0-9][0-9][0-9][0-9]/$port/" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
   fi
-
 }
 
 function set_bolt_port {

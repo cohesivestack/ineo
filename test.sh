@@ -605,9 +605,9 @@ CreateWithIncorrectEdition() {
 "
   done
 
-  assert_end CreateWithBoltPortOnIncorrectVersion
+  assert_end CreateWithIncorrectEdition
 }
-tests+=('CreateWithBoltPortOnIncorrectVersion')
+tests+=('CreateWithIncorrectEdition')
 
 
 CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
@@ -1123,12 +1123,14 @@ InstancesCorrectly() {
 "
   > instance 'facebook'
     VERSION: $version
+    EDITION: $edition
     PATH:    $INEO_HOME/instances/facebook
     PORT:    7575
     HTTPS:   8585
 
   > instance 'twitter'
     VERSION: $version
+    EDITION: $edition
     PATH:    $INEO_HOME/instances/twitter
     PORT:    7474
     HTTPS:   8484
