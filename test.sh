@@ -1119,7 +1119,8 @@ InstancesCorrectly() {
       assert_raises "./ineo create -p7575 -s8585 -e $edition -v $version facebook" 0
 
       assert_raises "./ineo instances" 0
-      assert        "./ineo instances" \
+      if [ ${version%%.*} -lt 3 ]; then
+        assert        "./ineo instances" \
 "
   > instance 'facebook'
     VERSION: $version
@@ -1135,6 +1136,26 @@ InstancesCorrectly() {
     PORT:    7474
     HTTPS:   8484
 "
+      else
+        assert        "./ineo instances" \
+"
+  > instance 'facebook'
+    VERSION: $version
+    EDITION: $edition
+    PATH:    $INEO_HOME/instances/facebook
+    PORT:    7575
+    HTTPS:   8585
+    BOLT:    8586
+
+  > instance 'twitter'
+    VERSION: $version
+    EDITION: $edition
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   8484
+    BOLT:    8485
+"
+      fi
     done
   done
 
