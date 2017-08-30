@@ -1,0 +1,49 @@
+{
+  "author": {
+    "name": "Carlos Forero"
+  },
+  "bin": {
+    "ineo": "./ineo"
+  },
+  "bugs": {
+    "url": "https://github.com/cohesivestack/ineo/issues"
+  },
+  "dependencies": {},
+  "description": "Neo4j instance manager and version manager",
+  "devDependencies": {},
+  "directories": {},
+  "homepage": "https://github.com/cohesivestack/ineo",
+  "keywords": [
+    "neo4",
+    "ineo",
+    "neo4j",
+    "version",
+    "manager",
+    "instance",
+    "test",
+    "testing"
+  ],
+  "license": "MIT",
+  "maintainers": [
+    {
+      "name": "cayasso",
+      "email": "cayasso@gmail.com"
+    }
+  ],
+  "name": "ineo",
+  "optionalDependencies": {},
+  "os": [
+    "!win32"
+  ],
+  "preferGlobal": true,
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/cohesivestack/ineo.git"
+  },
+  "script": {
+    "install": "./ineo install",
+    "uninstall": "./ineo uninstall"
+  },
+  "scripts": {},
+  "version": "1.1.0"
+}
