@@ -19,7 +19,7 @@ Ineo figure out this issue allowing to manage different Neo4j instances on diffe
 1. Execute the line bellow on your terminal:
 
    ```
-   curl -sSL http://getineo.cohesivestack.com | bash -s install
+   curl -sSL https://raw.githubusercontent.com/tandrewnichols/ineo/master/ineo | bash -s install
    ```
 
 2. Restart your terminal or execute the line bellow:
