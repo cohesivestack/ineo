@@ -26,7 +26,7 @@ VERSION=1.1.0
 
 DEFAULT_HOME="$HOME/.ineo"
 
-DEFAULT_VERSION='3.0.3'
+DEFAULT_VERSION='3.3.1'
 
 DEFAULT_PORT='7474'
 
@@ -534,26 +534,26 @@ function create {
   # If version is less than 3 and is enterprise then disable the online backup
   # by default
   if [ ${version%%.*} -lt 3 ] && [ $edition == "enterprise" ]; then
-    sed -i.bak "/^\(online_backup_enabled=\).*/s//\1false/" \
+    sed -i "/^\(online_backup_enabled=\).*/s//\1false/" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j.properties
   fi
 
   # Set the webserver address in the configuration file
-  if [ "$allow_external_connections" = true ] ; then
-    allow_external_connections $instance_name
-  fi
+  allow_external_connections $instance_name
 
   printf "\n  ${GREEN}The instance ${BOLD}${instance_name}${GREEN} was successfully created.${NF}\n\n"
 }
 
 function allow_external_connections {
   local instance_name=$1
-  if [ $(get_major_version $instance_name) -lt 3 ]; then
-    sed -i.bak "/org\.neo4j\.server\.webserver\.address=/s/^#//g" \
+  if [[ $(get_major_version ${instance_name}) < 3 && "${allow_external_connections}" == true ]]; then
+    sed -i "/org\.neo4j\.server\.webserver\.address=/s/^#//g" \
     ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
   else
-    sed -i.bak "/dbms\.connector\.http\.address=/s/^#//g" \
-    ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+    if [[ "${allow_external_connections}" == false ]]; then
+      sed -i -E '/^(dbms\.connector\.https?\.enabled)=/s/^\W*(.*)=.*/\1=false/g' \
+      ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+    fi
   fi
 }
 
@@ -806,12 +806,24 @@ function instances {
         local ssl=$(sed -n '/^org\.neo4j\.server\.webserver\.https\.port=\(.*\)$/s//\1/p' \
           $INEO_HOME/instances/$instance_name/conf/neo4j-server.properties)
       else
-        local port=$(sed -n '/^dbms\.connector\.http\.address=.*\:\(.*\)$/s//\1/p' \
+        local port=$(sed -n '/^dbms\.connector\.http\.listen\_address=.*\:\(.*\)$/s//\1/p' \
           $INEO_HOME/instances/$instance_name/conf/neo4j.conf)
-        local ssl=$(sed -n '/^dbms\.connector\.https\.address=.*\:\(.*\)$/s//\1/p' \
+        local ssl=$(sed -n '/^dbms\.connector\.https\.listen\_address=.*\:\(.*\)$/s//\1/p' \
           $INEO_HOME/instances/$instance_name/conf/neo4j.conf)
-        local bolt=$(sed -n '/^dbms\.connector\.bolt\.address=.*\:\(.*\)$/s//\1/p' \
+        local bolt=$(sed -n '/^dbms\.connector\.bolt\.listen\_address=.*\:\(.*\)$/s//\1/p' \
           $INEO_HOME/instances/$instance_name/conf/neo4j.conf)
+      
+        if [[ "${bolt}" == "" ]]; then
+          bolt="(default)"
+        fi
+      fi
+
+      if [[ "${port}" == "" ]]; then
+        port="(default)"
+      fi
+
+      if [[ "${ssl}" == "" ]]; then
+        ssl="(default)"
       fi
 
       local version=$(get_version $instance_name)
@@ -840,13 +852,13 @@ function set_port {
   local port=$2
 
   if [ $(get_major_version $instance_name) -lt 3 ]; then
-    sed -i.bak "/^\(org\.neo4j\.server\.webserver\.port=\).*/s//\1$port/" \
+    sed -i "/^\(org\.neo4j\.server\.webserver\.port=\).*/s//\1$port/" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
   else
-    sed -i.bak -E "/dbms\.connector\.http\.address=/s/^# *//" \
+    sed -i -E "/dbms\.connector\.http\.listen\_address=/s/^# *//" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
 
-    sed -i.bak -E "/dbms\.connector\.http\.address=.*/s/:[0-9]+/:$port/" \
+    sed -i -E "/dbms\.connector\.http\.listen\_address=.*/s/:[0-9]+/:$port/" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
   fi
 }
@@ -856,13 +868,13 @@ function set_https_port {
   local port=$2
 
   if [ $(get_major_version $instance_name) -lt 3 ]; then
-    sed -i.bak "/^\(org\.neo4j\.server\.webserver\.https\.port=\).*/s//\1$port/" \
+    sed -i "/^\(org\.neo4j\.server\.webserver\.https\.port=\).*/s//\1$port/" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
   else
-    sed -i.bak -E "/dbms\.connector\.https\.address=/s/^# *//" \
+    sed -i -E "/dbms\.connector\.https\.listen\_address=/s/^# *//" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
 
-    sed -i.bak -E "/dbms\.connector\.https\.address=/s/:[0-9]+/:$port/" \
+    sed -i -E "/dbms\.connector\.https\.listen\_address=/s/:[0-9]+/:$port/" \
       ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
   fi
 }
@@ -870,12 +882,21 @@ function set_https_port {
 function set_bolt_port {
   local instance_name=$1
   local port=$2
+  
+  if [[ $(get_major_version "${instance_name}") < 3 ]]; then
+    sed -i -E "/dbms\.connector\.bolt\.address=/s/^# *//" \
+      ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
 
-  sed -i.bak -E "/dbms\.connector\.bolt\.address=/s/^# *//" \
-    ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+    sed -i -E "/dbms\.connector\.bolt\.address=/s/:[0-9]+/:$port/" \
+      ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+  else
+    sed -i -E "/dbms\.connector\.bolt\.listen\_address=/s/^# *//" \
+      ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
 
-  sed -i.bak -E "/dbms\.connector\.bolt\.address=/s/:[0-9]+/:$port/" \
-    ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+    sed -i -E "/dbms\.connector\.bolt\.listen\_address=/s/:[0-9]+/:$port/" \
+      ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+
+  fi
 }
 
 # Command
@@ -1188,9 +1209,26 @@ HELP_CREATE="
                   Default: <higher port number>+1
                   Note: Only works on Neo4j version 3.0 or higher
 
+    -a            Allow external connections (http/https)
+
+                  Default: folse
+
     -v <version>  The Neo4j version for the instance
 
                   Default: $DEFAULT_VERSION
+
+    -e <edition>  The Neo4j edition for the instance (community/enterprise)
+
+                  Default: $DEFAULT_EDITION
+                  Note: Enterprise version requires to have a valid license
+
+    -d            Force download of Neo4j version
+
+                  Default: folse
+
+    -f            Force install even if instance already exists
+
+                  Default: folse
 
 "
 
