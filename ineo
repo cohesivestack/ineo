@@ -554,11 +554,20 @@ function allow_external_connections {
   local instance_name=$1
   if [[ $(get_major_version ${instance_name}) < 3 && "${allow_external_connections}" == true ]]; then
     sed -i "/org\.neo4j\.server\.webserver\.address=/s/^#//g" \
-    ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+      ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
   else
-    if [[ "${allow_external_connections}" == false ]]; then
-      sed -i -E '/^(dbms\.connector\.https?\.enabled)=/s/^\W*(.*)=.*/\1=false/g' \
-      ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+    if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
+      address=localhost
+      if [[ "${allow_external_connections}" == true ]]; then
+        address=0.0.0.0
+      fi
+      sed -i -E "/dbms\.connector\.(http|https|bolt)\.address=/s/=.*:([0-9]*)/=${address}:\1/g" \
+        ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+    else
+      if [[ "${allow_external_connections}" == false ]]; then
+        sed -i -E '/dbms\.connectors\.default_listen_address=/s/^#///g' \
+          ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
+      fi
     fi
   fi
 }
@@ -1247,7 +1256,7 @@ HELP_CREATE="
                   Default: <higher port number>+1
                   Note: Only works on Neo4j version 3.0 or higher
 
-    -a            Allow external connections (http/https)
+    -a            Allow external connections (http/https/bolt)
 
                   Default: folse
 
