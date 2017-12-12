@@ -3,7 +3,7 @@
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
 DEFAULT_EDITION='all'
-LAST_VERSION='3.0.3'
+LAST_VERSION='3.3.1'
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -29,9 +29,10 @@ NF='\033[0m'
 
 versions=()
 editions=()
+stoponerror=""
+verbose=""
 tests=()
-
-while getopts ":v:e:" optname
+while getopts ":v:e:xV" optname
 do
   case "${optname}" in
     v)
@@ -40,8 +41,34 @@ do
     e)
       editions+=( ${OPTARG} )
       ;;
+    x)
+      stoponerror="-x"
+      ;;
+    V)
+      verbose+="-v"
+      ;;
     *)
-      echo "Invalid parameters"
+      >&2 echo "Invalid parameters"
+      echo "
+USAGE:
+  test.sh [options] [test name]
+
+DESCRIPTION:
+  Start unit tests
+
+OPTIONS:
+  -v <version>         Test a specific Neo4j version only or use \"all\"
+
+                       Default: ${DEFAULT_VERSION}
+
+  -e <edition>         Test a specific Neo4j edition (community/enterprise) or use \"all\"
+
+                       Default: ${DEFAULT_EDITION}
+
+  -x                   Stop running tests after the first failure
+
+  -V                   Generate output for every individual test case
+"
       exit 1
       ;;
   esac
@@ -57,7 +84,14 @@ fi
 
 # If is all then test with all Neo4j versions
 if [ ${versions[0]} == 'all' ]; then
-  versions=(1.9.9 2.3.6 3.0.3)
+  # check current java version and select "all" version appropriately
+  java_version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
+  if [[ "${java_version%*.*}" < "1.8" ]]; then
+    versions=(1.9.9 2.3.6 3.0.3 3.3.1)
+  else
+    # neo4j 1.9.x is not compatible with java >= 1.8
+    versions=(2.3.6 3.0.3 3.3.1)
+  fi
 fi
 
 # If there are not any argument specified then test just with default Neo4j
@@ -101,7 +135,7 @@ sed -i.bak "/^\(VERSION=\).*/s//\1x.x.x/" ./fake_ineo_host/ineo
 set -e
 
 # Load assert.sh library (More info: http://github.com/lehmannro/assert.sh)
-. assert.sh
+. assert.sh ${stoponerror} ${verbose}
 
 # Set the variables to create instances
 # ------------------------------------------------------------------------------
@@ -142,6 +176,10 @@ function assert_not_run_pid {
 # ==============================================================================
 
 function setup {
+  if [[ "${verbose}" != "" ]]; then
+    echo -e "\nStarting test $1"
+  fi
+
   rm -fr ineo_for_test
   assert_raises "test -d ineo_for_test" 1
 }
@@ -196,7 +234,7 @@ function get_not_running_message {
 # ==============================================================================
 
 InstallWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-e $(pwd)/ineo_for_test" 'e'
@@ -225,7 +263,7 @@ tests+=('InstallWithIncorrectParameters')
 
 
 InstallWithARelativePath() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     '-d ineo_for_test'
@@ -250,7 +288,7 @@ tests+=('InstallWithARelativePath')
 
 
 InstallOnAnExistingDirectory() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   assert_raises "mkdir $(pwd)/ineo_for_test" 0
 
@@ -286,7 +324,7 @@ InstallCorrectly() {
   )
 
   for param in "${params[@]}"; do
-    setup
+    setup "${FUNCNAME[0]}"
 
     assert "./ineo install $param" \
 "
@@ -314,7 +352,7 @@ tests+=('InstallCorrectly')
 # ==============================================================================
 
 UninstallWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-e $(pwd)/ineo_for_test" 'e'
@@ -349,7 +387,7 @@ tests+=('UninstallWithIncorrectParameters')
 
 
 UninstallWithARelativeDirectory() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     '-d ineo_for_test'
@@ -375,7 +413,7 @@ tests+=('UninstallWithARelativeDirectory')
 
 
 UninstallWithANonExistentDirectory() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-d $(pwd)/ineo_for_test"
@@ -402,7 +440,7 @@ tests+=('UninstallWithANonExistentDirectory')
 
 
 UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-d $(pwd)/ineo_for_test"
@@ -460,7 +498,7 @@ tests+=('UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectory')
 
 
 UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectoryUsingF() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-d $(pwd)/ineo_for_test -f"
@@ -500,7 +538,7 @@ tests+=('UninstallWithADirectoryThatDoesntLookLikeAnIneoDirectoryUsingF')
 # ==============================================================================
 
 CreateAnInstanceWithoutTheRequiredParameter() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -518,7 +556,7 @@ CreateAnInstanceWithoutTheRequiredParameter() {
 tests+=('CreateAnInstanceWithoutTheRequiredParameter')
 
 CreateWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-x" 'x'
@@ -560,7 +598,7 @@ CreateWithBoltPortOnIncorrectVersion() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=1)); do
-    setup
+    setup "${FUNCNAME[0]}"
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -590,7 +628,7 @@ CreateWithIncorrectEdition() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=1)); do
-    setup
+    setup "${FUNCNAME[0]}"
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -640,7 +678,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=6)); do
-    setup
+    setup "${FUNCNAME[0]} ${params[i]}"
 
     local port=${params[i+1]}
     local ssl_port=${params[i+2]}
@@ -678,13 +716,13 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
       assert_raises \
         "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
     else
-      assert_raises "grep -Fq dbms\.connector\.http\.address=0.0.0.0:$port $config" 0
+      assert_raises "grep -Fq dbms\.connector\.http\.listen\_address=:$port $config" 0
 
       assert_raises \
-        "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
+        "grep -Fq dbms\.connector\.https\.listen\_address=:$ssl_port $config" 0
 
       assert_raises \
-        "grep -Fq dbms\.connector\.bolt\.address=0.0.0.0:$bolt_port $config" 0
+        "grep -Fq dbms\.connector\.bolt\.listen\_address=:$bolt_port $config" 0
     fi
 
   done
@@ -699,9 +737,10 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
   local version
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      setup
+      setup "${FUNCNAME[0]} ${version}-${edition}"
 
       local major_version_number=${version%%.*}
+      local minor_version_number=${version%.*}
       if [ $major_version_number -lt 3 ]; then
         local config="$(pwd)/ineo_for_test/instances/twitter/conf/neo4j-server.properties"
       else
@@ -729,11 +768,16 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
 
         assert_raises \
           "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
-      else
+      elif [[ "${minor_version_number}" < "3.1" ]]; then
         assert_raises "grep -Fq dbms\.connector\.http\.address=0.0.0.0:$port $config" 0
 
         assert_raises \
           "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
+      else
+        assert_raises "grep -Fq dbms\.connector\.http\.listen\_address=:$port $config" 0
+
+        assert_raises \
+          "grep -Fq dbms\.connector\.https\.listen\_address=:$ssl_port $config" 0
       fi
     done
   done
@@ -744,7 +788,7 @@ tests+=('CreateAnInstanceCorrectlyWithEveryVersion')
 
 
 CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Truncate a bad version, so is possible a bad tar
   rm -fr bad_tar_for_test
@@ -812,7 +856,7 @@ tests+=('CreateAnInstanceWithABadTarAndTryAgainWithDOption')
 
 
 CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -855,7 +899,7 @@ tests+=('CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption')
 actions=('start' 'status' 'restart' 'stop')
 
 ActionsWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-x" 'x'
@@ -882,7 +926,7 @@ tests+=('ActionsWithIncorrectParameters')
 
 
 ActionsOnANonExistentInstance() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -906,7 +950,7 @@ tests+=('ActionsOnANonExistentInstance')
 
 
 ActionsOnANotProperlyInstalledInstance() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -934,7 +978,7 @@ ExecuteActionsCorrectly() {
   local version
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      setup
+      setup "${FUNCNAME[0]} ${version}-${edition}"
 
       # Make an installation
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -978,7 +1022,7 @@ ExecuteActionsOnVariousInstancesCorrectly() {
   #local editions=(community)
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      setup
+      setup "${FUNCNAME[0]} ${version}-${edition}"
 
       # Make an installation
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1083,7 +1127,7 @@ tests+=('ExecuteActionsOnVariousInstancesCorrectly')
 # ==============================================================================
 
 InstancesWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   params=(
     'wrong'
@@ -1110,7 +1154,7 @@ tests+=('InstancesWithIncorrectParameters')
 InstancesCorrectly() {
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      setup
+      setup "${FUNCNAME[0]} ${version}-${edition}"
 
       # Make an installation
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1169,7 +1213,7 @@ tests+=('InstancesCorrectly')
 # ==============================================================================
 
 VersionsWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     'wrong' 'wrong'
@@ -1194,7 +1238,7 @@ tests+=('VersionsWithIncorrectParameters')
 
 
 VersionsCorrectly() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1212,7 +1256,7 @@ tests+=('VersionsCorrectly')
 # ==============================================================================
 
 ShellWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-x" 'x'
@@ -1240,7 +1284,7 @@ tests+=('ShellWithIncorrectParameters')
 
 
 StartAShellWithoutTheRequiredParameter() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1260,7 +1304,7 @@ tests+=('StartAShellWithoutTheRequiredParameter')
 
 
 StartAShellWithANonExistentInstance() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1284,7 +1328,7 @@ tests+=('StartAShellWithANonExistentInstance')
 # ==============================================================================
 
 ConsoleWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-x" 'x'
@@ -1312,7 +1356,7 @@ tests+=('ConsoleWithIncorrectParameters')
 
 
 StartModeConsoleWithoutTheRequiredParameter() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1332,7 +1376,7 @@ tests+=('StartModeConsoleWithoutTheRequiredParameter')
 
 
 StartModeConsoleWithANonExistentInstance() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1356,7 +1400,7 @@ tests+=('StartModeConsoleWithANonExistentInstance')
 # ==============================================================================
 
 DestroyWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-x" 'x'
@@ -1384,7 +1428,7 @@ tests+=('DestroyWithIncorrectParameters')
 
 
 DestroyAnInstanceWithoutTheRequiredParameter() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1404,7 +1448,7 @@ tests+=('DestroyAnInstanceWithoutTheRequiredParameter')
 
 
 DestroyANonExistentInstance() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1427,7 +1471,7 @@ DestroyCorrectly() {
   local version
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      setup
+      setup "${FUNCNAME[0]} ${version}-${edition}"
 
       # Make an installation
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1495,7 +1539,7 @@ tests+=('DestroyCorrectly')
 # ==============================================================================
 
 SetPortWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-x" 'x'
@@ -1523,7 +1567,7 @@ tests+=('SetPortWithIncorrectParameters')
 
 
 SetPortWithoutTheRequireParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1554,7 +1598,7 @@ tests+=('SetPortWithoutTheRequireParameters')
 
 
 SetPortOnANonExistentInstance() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1574,7 +1618,7 @@ tests+=('SetPortOnANonExistentInstance')
 
 
 SetPortWithAnIncorrectNumberPort() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1596,7 +1640,7 @@ tests+=('SetPortWithAnIncorrectNumberPort')
 
 
 SetPortWithAnIncorrectOutOfRangePort() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1627,7 +1671,7 @@ tests+=('SetPortWithAnIncorrectOutOfRangePort')
 
 
 SetBoltPortWithIncorrectVersion() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1651,7 +1695,7 @@ tests+=('SetBoltPortWithIncorrectVersion')
 
 
 SetBoltAndSslPortAtTheSameTime() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1676,7 +1720,7 @@ SetPortCorrectly() {
   local version
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      setup
+      setup "${FUNCNAME[0]} ${version}-${edition}"
 
       # Make an installation
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1735,7 +1779,7 @@ tests+=('SetPortCorrectly')
 # ==============================================================================
 
 ClearDataWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-x" 'x'
@@ -1763,7 +1807,7 @@ tests+=('ClearDataWithIncorrectParameters')
 
 
 ClearDataWithoutTheRequireParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1785,7 +1829,7 @@ tests+=('ClearDataWithoutTheRequireParameters')
 
 
 ClearDataOnANonExistentInstance() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1808,7 +1852,7 @@ ClearDataCorrectly() {
   local version
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      setup
+      setup "${FUNCNAME[0]} ${version}-${edition}"
 
       # Make an installation
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1901,7 +1945,7 @@ ClearDataCorrectlyWithoutADatabaseFile() {
   local version
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
-      setup
+      setup "${FUNCNAME[0]} ${version}-${edition}"
 
       # Make an installation
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -1966,7 +2010,7 @@ tests+=('ClearDataCorrectlyWithoutADatabaseFile')
 # ==============================================================================
 
 UpdateWithIncorrectParameters() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   local params=(
     "-x" '-x'
@@ -1994,13 +2038,13 @@ tests+=('UpdateWithIncorrectParameters')
 
 
 UpdateCorrectly() {
-  setup
+  setup "${FUNCNAME[0]}"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
   assert_raises "./ineo update" 0
 
-  setup
+  setup "${FUNCNAME[0]}"
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
   old_version=$(sed -n '/^VERSION=\(.*\)$/s//\1/p' $INEO_HOME/bin/ineo)
 
