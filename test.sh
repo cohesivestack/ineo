@@ -163,11 +163,17 @@ function set_instance_pid {
 
 function assert_run_pid {
   local pid=$1
+  # we need to wait some seconds, because on fast computers the pid will exists 
+  # even though neo4j terminates due to a configuration error
+  sleep 2
   assert_raises "test $(ps -p $pid -o pid=)" 0
 }
 
 function assert_not_run_pid {
   local pid=$1
+  # we need to wait some seconds, because on fast computers the pid will exists 
+  # even though neo4j terminates due to a configuration error
+  sleep 2
   assert_raises "test $(ps -p $pid -o pid=)" 1
 }
 
@@ -724,7 +730,6 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
       assert_raises \
         "grep -Fq dbms\.connector\.bolt\.listen\_address=:$bolt_port $config" 0
     fi
-
   done
 
   assert_end CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters
@@ -769,7 +774,7 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
         assert_raises \
           "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
       elif [[ "${minor_version_number}" < "3.1" ]]; then
-        assert_raises "grep -Fq dbms\.connector\.http\.address=0.0.0.0:$port $config" 0
+        assert_raises "grep -Fq dbms\.connector\.http\.address=localhost:$port $config" 0
 
         assert_raises \
           "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
@@ -1010,7 +1015,6 @@ ExecuteActionsCorrectly() {
       # status not running
       assert "./ineo status twitter" \
         "$(get_not_running_message $version twitter)"
-
     done
   done
   assert_end ExecuteActionsCorrectly
