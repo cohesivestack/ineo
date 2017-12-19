@@ -165,7 +165,7 @@ function assert_run_pid {
   local pid=$1
   # we need to wait some seconds, because on fast computers the pid will exists 
   # even though neo4j terminates due to a configuration error
-  sleep 2
+  sleep 3 
   assert_raises "test $(ps -p $pid -o pid=)" 0
 }
 
@@ -173,7 +173,7 @@ function assert_not_run_pid {
   local pid=$1
   # we need to wait some seconds, because on fast computers the pid will exists 
   # even though neo4j terminates due to a configuration error
-  sleep 2
+  sleep 3
   assert_raises "test $(ps -p $pid -o pid=)" 1
 }
 
@@ -311,10 +311,10 @@ InstallOnAnExistingDirectory() {
   ${PURPLE}Error -> The directory ${BOLD}$(pwd)/ineo_for_test${PURPLE} already exists
 
   ${NF}If you want reinstall ineo then uninstall it with:
-    ${CYAN}ineo uninstall -d $(pwd)/ineo_for_test
+    ${CYAN}ineo uninstall -d \"$(pwd)/ineo_for_test\"
 
   ${NF}or ensure the directory doesn't contain anything important then remove it with:
-    ${CYAN}rm -r $(pwd)/ineo_for_test${NF}
+    ${CYAN}rm -r \"$(pwd)/ineo_for_test\"${NF}
 "
   done
 
