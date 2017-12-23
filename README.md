@@ -48,10 +48,11 @@ Show the information about the recently instance created:
 $ ineo instances
 
   > instance 'my_db'
-    VERSION: 2.2.2
+    VERSION: 3.3.1
     PATH:    /home_path/.ineo/instances/my_db
     PORT:    7474
-    HTTPS:   7475
+    HTTPS:   7473
+    BOLT:    7687
 ```  
 
 Ineo downloaded the last available version of Neo4j and created an instance database ready to use on the port 7474 and 7475 for ssl.
@@ -87,8 +88,8 @@ Stop the database instance
 ```
 $ ineo stop my_db
 
-  status 'my_db'
-  Neo4j Server is running at pid 19773
+  stop 'my_db'
+  Stopping Neo4j.. stopped
 ```
 
 ### Restart instance
@@ -119,16 +120,18 @@ Now, when you show the information about instances, you see:
 $ ineo instances
 
   > instance 'my_db'
-    VERSION: 2.2.2
+    VERSION: 3.3.1
     PATH:    /home_path/.ineo/instances/my_db
     PORT:    7474
     HTTPS:   7475
+    BOLT:    7687
 
   > instance 'my_db_test'
-    VERSION: 2.2.2
+    VERSION: 3.3.1
     PATH:    /home_path/.ineo/instances/my_db_test
     PORT:    8486
     HTTPS:   8487
+    BOLT:    7687
 ```
 
 ### Start multiple instances
@@ -217,7 +220,7 @@ $ ineo set-port -s my_db 9494
 The command `create` always uses the last Neo4j version available of the current Ineo version installed. However is possible to specify another version using the option `-v`
 
 ```
-ineo create -v 2.1.8
+ineo create -v 3.2.0
 ```
 
 ### The command versions
