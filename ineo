@@ -1441,7 +1441,7 @@ function versions {
 # ==============================================================================
 
 function help {
-  if {[ -z "${1}" ]]; then
+  if [[ -z "${1}" ]]; then
     printf "${HELP}"
   else
     command=$(echo "help_$1" | tr '[:lower:]' '[:upper:]' | tr '-' '_')

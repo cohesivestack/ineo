@@ -684,7 +684,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=6)); do
-    setup "${FUNCNAME[0]} ${params[i]}"
+		  setup "${FUNCNAME[0]} ${params[i]} (${params[i+1]}-${params[i+2]}-${params[i+3]}-${params[i+4]}-${params[i+5]})"
 
     local port=${params[i+1]}
     local ssl_port=${params[i+2]}
