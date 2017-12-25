@@ -616,7 +616,7 @@ function allow_external_connections {
         ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
     else
       if [[ "${allow_external_connections}" == false ]]; then
-        sed -i -E '/dbms\.connectors\.default_listen_address=/s/^#///g' \
+        sed -i -E '/dbms\.connectors\.default_listen_address=/s/^#/\//g' \
           ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
       fi
     fi
@@ -934,13 +934,13 @@ function set_port {
       sed -i -E "/dbms\.connector\.http\.address=/s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i -E "/dbms\.connector\.http\.address=.*/s/:[0-9]+/:${port}/" \
+      sed -i -E "/dbms\.connector\.http\.address=.*/s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     else
       sed -i -E "/dbms\.connector\.http\.listen\_address=/s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i -E "/dbms\.connector\.http\.listen\_address=.*/s/:[0-9]+/:${port}/" \
+      sed -i -E "/dbms\.connector\.http\.listen\_address=.*/s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     fi
   fi
@@ -958,13 +958,13 @@ function set_https_port {
       sed -i -E "/dbms\.connector\.https\.address=/s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i -E "/dbms\.connector\.https\.address=/s/:[0-9]+/:${port}/" \
+      sed -i -E "/dbms\.connector\.https\.address=/s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     else
       sed -i -E "/dbms\.connector\.https\.listen\_address=/s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i -E "/dbms\.connector\.https\.listen\_address=/s/:[0-9]+/:${port}/" \
+      sed -i -E "/dbms\.connector\.https\.listen\_address=/s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     fi
   fi
@@ -978,20 +978,20 @@ function set_bolt_port {
     sed -i -E "/dbms\.connector\.bolt\.address=/s/^# *//" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
 
-    sed -i -E "/dbms\.connector\.bolt\.address=/s/:[0-9]+/:${port}/" \
+    sed -i -E "/dbms\.connector\.bolt\.address=/s/:[0-9]*/:${port}/" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
       sed -i -E "/dbms\.connector\.bolt\.address=/s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i -E "/dbms\.connector\.bolt\.address=/s/:[0-9]+/:${port}/" \
+      sed -i -E "/dbms\.connector\.bolt\.address=/s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     else
       sed -i -E "/dbms\.connector\.bolt\.listen\_address=/s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i -E "/dbms\.connector\.bolt\.listen\_address=/s/:[0-9]+/:${port}/" \
+      sed -i -E "/dbms\.connector\.bolt\.listen\_address=/s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     fi
   fi
