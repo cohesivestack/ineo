@@ -603,16 +603,18 @@ function create {
 
 function allow_external_connections {
   local instance_name=$1
-  if [[ $(get_major_version ${instance_name}) < 3 && "${allow_external_connections}" == true ]]; then
-    sed -i "/org\.neo4j\.server\.webserver\.address=/s/^#//g" \
-      ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+  if [[ $(get_major_version ${instance_name}) < 3 ]]; then
+    if [[ "${allow_external_connections}" == true ]]; then
+      sed -i -E "/org\.neo4j\.server\.webserver\.address=/s/^#//g" \
+        ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
+	  fi
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
       address=localhost
       if [[ "${allow_external_connections}" == true ]]; then
         address=0.0.0.0
       fi
-      sed -i -E "/dbms\.connector\.(http|https|bolt)\.address=/s/=.*:([0-9]*)/=${address}:\1/g" \
+      sed -i -E "/dbms\.connector\.\(http|https|bolt\)\.address=/s/=.*:\([0-9]*\)/=${address}:\1/g" \
         ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
     else
       if [[ "${allow_external_connections}" == false ]]; then
@@ -927,7 +929,7 @@ function set_port {
   local port=$2
 
   if [[ $(get_major_version "${instance_name}") -lt 3 ]]; then
-    sed -i "/^\(org\.neo4j\.server\.webserver\.port=\).*/s//\1${port}/" \
+    sed -i -E "/^\(org\.neo4j\.server\.webserver\.port=\).*/s//\1${port}/" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
@@ -951,7 +953,7 @@ function set_https_port {
   local port=$2
 
   if [[ $(get_major_version "${instance_name}") -lt 3 ]]; then
-    sed -i "/^\(org\.neo4j\.server\.webserver\.https\.port=\).*/s//\1${port}/" \
+    sed -i -E "/^\(org\.neo4j\.server\.webserver\.https\.port=\).*/s//\1${port}/" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
