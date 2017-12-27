@@ -769,20 +769,20 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
 
       # Ensure the correct ports were set
       if [ $major_version_number -lt 3 ]; then
-        assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
+        assert_raises "grep -Fq \"org.neo4j.server.webserver.port=$port\" $config" 0
 
         assert_raises \
-          "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+          "grep -Fq \"org.neo4j.server.webserver.https.port=$ssl_port\" $config" 0
       elif [[ "${minor_version_number}" < "3.1" ]]; then
-        assert_raises "grep -Fq dbms\.connector\.http\.address=localhost:$port $config" 0
+        assert_raises "grep -Fq \"dbms.connector.http.address=localhost:$port\" $config" 0
 
         assert_raises \
-          "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
+          "grep -Fq \"dbms.connector.https.address=localhost:$ssl_port\" $config" 0
       else
-        assert_raises "grep -Fq dbms\.connector\.http\.listen\_address=:$port $config" 0
+        assert_raises "grep -Fq \"dbms.connector.http.listen_address=:$port\" $config" 0
 
         assert_raises \
-          "grep -Fq dbms\.connector\.https\.listen\_address=:$ssl_port $config" 0
+          "grep -Fq \"dbms.connector.https.listen_address=:$ssl_port\" $config" 0
       fi
     done
   done
@@ -1704,7 +1704,7 @@ SetBoltAndSslPortAtTheSameTime() {
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-  assert_raises "./ineo create -v 3.0.0 twitter" 0
+  assert_raises "./ineo create -v 3.0.3 twitter" 0
 
   assert_raises "./ineo set-port -s -b twitter 7575" 1
   assert        "./ineo set-port -s -b twitter 7474" \
