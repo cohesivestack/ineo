@@ -44,6 +44,8 @@ LOCK_DIR='/tmp/ineo.neo4j.instances.lock'
 
 TEMP_DIR="/tmp/$$.ineo"
 
+SED_CMD="sed -i''"
+
 # Regular Colors
 BLACK='\033[0;30m'
 RED='\033[0;31m'
@@ -162,7 +164,7 @@ function configuration_set {
 
   # first check, if value already exists in config
   if [[ -n $(sed -n "/^#\?\(${param}\)=.*$/s//\1/p" "${path}") ]]; then
-    sed -i '' "/^#\?\(${param}\)=.*$/s//\1=${value}/" "${path}"
+    ${SED_CMD} "/^#\?\(${param}\)=.*$/s//\1=${value}/" "${path}"
   else
     # append new parameter to end of config
     echo "${param}=${value}" >> "${path}"
@@ -186,7 +188,7 @@ function configuration_comment {
   fi
 
   # first check, if value already exists in config
-  sed -i '' "/^#\?\(${param}=.*\)$/s//${comment}\1/" "${path}"
+  ${SED_CMD} "/^#\?\(${param}=.*\)$/s//${comment}\1/" "${path}"
 
 }
 
@@ -591,7 +593,7 @@ function create {
   # If version is less than 3 and is enterprise then disable the online backup
   # by default
   if [[ "${version%%.*}" -lt 3 && "${edition}" == "enterprise" ]]; then
-    sed -i '' "/^\(online_backup_enabled=\).*/s//\1false/" \
+    ${SED_CMD} "/^\(online_backup_enabled=\).*/s//\1false/" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j.properties"
   fi
 
@@ -605,7 +607,7 @@ function allow_external_connections {
   local instance_name=$1
   if [[ $(get_major_version ${instance_name}) < 3 ]]; then
     if [[ "${allow_external_connections}" == true ]]; then
-      sed -i '' -E "/org.neo4j.server.webserver.address=/ s/^#//g" \
+      ${SED_CMD} -E "/org.neo4j.server.webserver.address=/ s/^#//g" \
         ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
 	  fi
   else
@@ -614,15 +616,15 @@ function allow_external_connections {
       if [[ "${allow_external_connections}" == true ]]; then
         address=0.0.0.0
       fi
-      sed -i '' -E "/dbms.connector.http.address=/ s/=.*:([0-9]*)/=${address}:\1/g" \
+      ${SED_CMD} -E "/dbms.connector.http.address=/ s/=.*:([0-9]*)/=${address}:\1/g" \
         ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
-      sed -i '' -E "/dbms.connector.https.address=/ s/=.*:([0-9]*)/=${address}:\1/g" \
+      ${SED_CMD} -E "/dbms.connector.https.address=/ s/=.*:([0-9]*)/=${address}:\1/g" \
         ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
-      sed -i '' -E "/dbms.connector.bolt.address=/ s/=.*:([0-9]*)/=${address}:\1/g" \
+      ${SED_CMD} -E "/dbms.connector.bolt.address=/ s/=.*:([0-9]*)/=${address}:\1/g" \
         ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
     else
       if [[ "${allow_external_connections}" == false ]]; then
-        sed -i '' -E "/dbms.connectors.default_listen_address=/ s/^#//g" \
+        ${SED_CMD} -E "/dbms.connectors.default_listen_address=/ s/^#//g" \
           ${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf
       fi
     fi
@@ -933,20 +935,20 @@ function set_port {
   local port=$2
 
   if [[ $(get_major_version "${instance_name}") -lt 3 ]]; then
-    sed -i '' -E "/^(org.neo4j.server.webserver.port=).*/ s//\1${port}/" \
+    ${SED_CMD} -E "/^(org.neo4j.server.webserver.port=).*/ s//\1${port}/" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
-      sed -i '' -E "/dbms.connector.http.address=/ s/^# *//" \
+      ${SED_CMD} -E "/dbms.connector.http.address=/ s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i '' -E "/dbms.connector.http.address=.*/ s/:[0-9]*/:${port}/" \
+      ${SED_CMD} -E "/dbms.connector.http.address=.*/ s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     else
-      sed -i '' -E "/dbms.connector.http.listen_address=/ s/^# *//" \
+      ${SED_CMD} -E "/dbms.connector.http.listen_address=/ s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i '' -E "/dbms.connector.http.listen_address=.*/ s/:[0-9]*/:${port}/" \
+      ${SED_CMD} -E "/dbms.connector.http.listen_address=.*/ s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     fi
   fi
@@ -957,20 +959,20 @@ function set_https_port {
   local port=$2
 
   if [[ $(get_major_version "${instance_name}") -lt 3 ]]; then
-    sed -i '' -E "/^(org.neo4j.server.webserver.https.port=).*/ s//\1${port}/" \
+    ${SED_CMD} -E "/^(org.neo4j.server.webserver.https.port=).*/ s//\1${port}/" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
-      sed -i '' -E "/dbms.connector.https.address=/ s/^# *//" \
+      ${SED_CMD} -E "/dbms.connector.https.address=/ s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i '' -E "/dbms.connector.https.address=/ s/:[0-9]*/:${port}/" \
+      ${SED_CMD} -E "/dbms.connector.https.address=/ s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     else
-      sed -i '' -E "/dbms.connector.https.listen_address=/ s/^# *//" \
+      ${SED_CMD} -E "/dbms.connector.https.listen_address=/ s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i '' -E "/dbms.connector.https.listen_address=/ s/:[0-9]*/:${port}/" \
+      ${SED_CMD} -E "/dbms.connector.https.listen_address=/ s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     fi
   fi
@@ -981,23 +983,23 @@ function set_bolt_port {
   local port=$2
   
   if [[ $(get_major_version "${instance_name}") < 3 ]]; then
-    sed -i '' -E "/dbms.connector.bolt.address=/ s/^# *//" \
+    ${SED_CMD} -E "/dbms.connector.bolt.address=/ s/^# *//" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
 
-    sed -i '' -E "/dbms.connector.bolt.address=/ s/:[0-9]*/:${port}/" \
+    ${SED_CMD} -E "/dbms.connector.bolt.address=/ s/:[0-9]*/:${port}/" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
-      sed -i '' -E "/dbms.connector.bolt.address=/ s/^# *//" \
+      ${SED_CMD} -E "/dbms.connector.bolt.address=/ s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i '' -E "/dbms.connector.bolt.address=/ s/:[0-9]*/:${port}/" \
+      ${SED_CMD} -E "/dbms.connector.bolt.address=/ s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     else
-      sed -i '' -E "/dbms.connector.bolt.listen_address=/ s/^# *//" \
+      ${SED_CMD} -E "/dbms.connector.bolt.listen_address=/ s/^# *//" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
 
-      sed -i '' -E "/dbms.connector.bolt.listen_address=/ s/:[0-9]*/:${port}/" \
+      ${SED_CMD} -E "/dbms.connector.bolt.listen_address=/ s/:[0-9]*/:${port}/" \
         "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
     fi
   fi
@@ -1817,6 +1819,12 @@ COMMAND=$1
 # ==============================================================================
 # MAIN
 # ==============================================================================
+
+# make OS specific changed
+if [[ "$( uname )" == "Darwin" ]]; then
+  # sed command is just incompatible with -i option
+	SED_CMD="sed -i ''"
+fi
 
 set_instances
 
