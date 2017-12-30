@@ -165,7 +165,7 @@ function assert_run_pid {
   local pid=$1
   # we need to wait some seconds, because on fast computers the pid will exists 
   # even though neo4j terminates due to a configuration error
-  sleep 2
+  sleep 3 
   assert_raises "test $(ps -p $pid -o pid=)" 0
 }
 
@@ -173,7 +173,7 @@ function assert_not_run_pid {
   local pid=$1
   # we need to wait some seconds, because on fast computers the pid will exists 
   # even though neo4j terminates due to a configuration error
-  sleep 2
+  sleep 3
   assert_raises "test $(ps -p $pid -o pid=)" 1
 }
 
@@ -311,10 +311,10 @@ InstallOnAnExistingDirectory() {
   ${PURPLE}Error -> The directory ${BOLD}$(pwd)/ineo_for_test${PURPLE} already exists
 
   ${NF}If you want reinstall ineo then uninstall it with:
-    ${CYAN}ineo uninstall -d $(pwd)/ineo_for_test
+    ${CYAN}ineo uninstall -d \"$(pwd)/ineo_for_test\"
 
   ${NF}or ensure the directory doesn't contain anything important then remove it with:
-    ${CYAN}rm -r $(pwd)/ineo_for_test${NF}
+    ${CYAN}rm -r \"$(pwd)/ineo_for_test\"${NF}
 "
   done
 
@@ -684,7 +684,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=6)); do
-    setup "${FUNCNAME[0]} ${params[i]}"
+		  setup "${FUNCNAME[0]} ${params[i]} (${params[i+1]}-${params[i+2]}-${params[i+3]}-${params[i+4]}-${params[i+5]})"
 
     local port=${params[i+1]}
     local ssl_port=${params[i+2]}
@@ -769,20 +769,20 @@ CreateAnInstanceCorrectlyWithEveryVersion() {
 
       # Ensure the correct ports were set
       if [ $major_version_number -lt 3 ]; then
-        assert_raises "grep -Fq org\.neo4j\.server\.webserver\.port=$port $config" 0
+        assert_raises "grep -Fq \"org.neo4j.server.webserver.port=$port\" $config" 0
 
         assert_raises \
-          "grep -Fq org\.neo4j\.server\.webserver\.https\.port=$ssl_port $config" 0
+          "grep -Fq \"org.neo4j.server.webserver.https.port=$ssl_port\" $config" 0
       elif [[ "${minor_version_number}" < "3.1" ]]; then
-        assert_raises "grep -Fq dbms\.connector\.http\.address=localhost:$port $config" 0
+        assert_raises "grep -Fq \"dbms.connector.http.address=localhost:$port\" $config" 0
 
         assert_raises \
-          "grep -Fq dbms\.connector\.https\.address=localhost:$ssl_port $config" 0
+          "grep -Fq \"dbms.connector.https.address=localhost:$ssl_port\" $config" 0
       else
-        assert_raises "grep -Fq dbms\.connector\.http\.listen\_address=:$port $config" 0
+        assert_raises "grep -Fq \"dbms.connector.http.listen_address=:$port\" $config" 0
 
         assert_raises \
-          "grep -Fq dbms\.connector\.https\.listen\_address=:$ssl_port $config" 0
+          "grep -Fq \"dbms.connector.https.listen_address=:$ssl_port\" $config" 0
       fi
     done
   done
@@ -1704,7 +1704,7 @@ SetBoltAndSslPortAtTheSameTime() {
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
-  assert_raises "./ineo create -v 3.0.0 twitter" 0
+  assert_raises "./ineo create -v 3.0.3 twitter" 0
 
   assert_raises "./ineo set-port -s -b twitter 7575" 1
   assert        "./ineo set-port -s -b twitter 7474" \
@@ -1713,6 +1713,7 @@ SetBoltAndSslPortAtTheSameTime() {
 
   ${NF}View help about the command ${UNDERLINE}set-port${NF} typing:
     ${CYAN}ineo help set-port${NF}
+
 "
 
   assert_end SetBoltAndSslPortAtTheSameTime
