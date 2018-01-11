@@ -1517,8 +1517,6 @@ HELP_CREATE="
 
     -a            Allow external connections (http/https/bolt)
 
-                  Default: folse
-
     -v <version>  The Neo4j version for the instance
 
                   Default: ${DEFAULT_VERSION}
@@ -1530,11 +1528,7 @@ HELP_CREATE="
 
     -d            Force download of Neo4j version
 
-                  Default: folse
-
     -f            Force install even if instance already exists
-
-                  Default: folse
 
 "
 
