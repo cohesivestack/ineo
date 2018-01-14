@@ -1222,7 +1222,7 @@ function set-config {
         quiet=true
         ;;
       *)
-        invalid_command_param "${OPTARG}" "configuration"
+        invalid_command_param "${OPTARG}" "set-config"
         exit 1
         ;;
     esac
