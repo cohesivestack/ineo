@@ -1100,7 +1100,7 @@ function set-port {
 }
 
 # ==============================================================================
-# GET-CONF
+# GET-CONFIG
 # ==============================================================================
 
 # Command
@@ -1201,7 +1201,7 @@ exit
 }
 
 # ==============================================================================
-# SET-CONF
+# SET-CONFIG
 # ==============================================================================
 
 # Command
@@ -1478,6 +1478,9 @@ HELP="
     status          Show instances status
     shell           Start the shell for a Neo4j instance
     console         Start a Neo4j instance in mode console
+
+    set-config      Change settings in configuration file
+    get-config      Read settings from configuration file
 
     delete-db       Delete all data of a specific instance <name>
     destroy         Remove a specific instance <name>
