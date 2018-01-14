@@ -1778,6 +1778,36 @@ SetPortCorrectly() {
 }
 tests+=('SetPortCorrectly')
 
+# ==============================================================================
+# TEST SET-CONFIG
+# ==============================================================================
+
+SetConfigWithIncorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  local params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "dbms.directories.logs logs root" 'root'
+    "-x dbms.directories.logs logs" 'x'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo set-config ${params[i]}" 1
+    assert        "./ineo set-config ${params[i]}" \
+"
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
+
+  ${NF}View help about the command ${UNDERLINE}set-config${NF} typing:
+    ${CYAN}ineo help set-config${NF}
+"
+  done
+
+  assert_end SetConfigWithIncorrectParameters
+}
+tests+=('SetConfigWithIncorrectParameters')
 
 # ==============================================================================
 # TEST CLEAR-DATA
