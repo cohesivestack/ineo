@@ -53,7 +53,7 @@ $ ineo instances
     PORT:    7474
     HTTPS:   7473
     BOLT:    7687
-```  
+```
 
 Ineo downloaded the last available version of Neo4j and created an instance database ready to use on the port 7474 and 7475 for ssl.
 
@@ -255,7 +255,7 @@ $ curl -sSL http://getineo.cohesivestack.com | bash -s install -d ~/.ineo-custom
 
 ## Help and other commands
 
-Just typing `ineo` you can get a briew description of every Ineo command.
+Just typing `ineo` you can get a brief description of every Ineo command.
 
 ```
 $ ineo help
@@ -334,6 +334,6 @@ Code contributions are welcome. The rules are:
 
 ## License
 
-Copyright © 2015 Carlos Forero
+Copyright © 2015-2018 Carlos Forero
 
 Ineo is released under the MIT License.
