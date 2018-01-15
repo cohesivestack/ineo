@@ -1213,7 +1213,6 @@ HELP="
 
     create          Create a new instance with a specific <name>
     set-port        Change the port of a specific instance <name>
-    configuration   Get or set a configuration parameter
     versions        Show the Neo4j versions available for installation
     instances       Show the information about installed instances
 
