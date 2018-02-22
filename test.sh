@@ -3,7 +3,7 @@
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
 DEFAULT_EDITION='all'
-LAST_VERSION='3.3.1'
+LAST_VERSION='3.3.3'
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -87,10 +87,10 @@ if [ ${versions[0]} == 'all' ]; then
   # check current java version and select "all" version appropriately
   java_version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
   if [[ "${java_version%*.*}" < "1.8" ]]; then
-    versions=(1.9.9 2.3.6 3.0.3 3.3.1)
+    versions=(1.9.9 2.3.6 3.0.3 3.3.3)
   else
     # neo4j 1.9.x is not compatible with java >= 1.8
-    versions=(2.3.6 3.0.3 3.3.1)
+    versions=(2.3.6 3.0.3 3.3.3)
   fi
 fi
 
