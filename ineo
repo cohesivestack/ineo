@@ -26,7 +26,7 @@ VERSION=1.1.0
 
 DEFAULT_HOME="${HOME}/.ineo"
 
-DEFAULT_VERSION='3.3.1'
+DEFAULT_VERSION='3.3.3'
 
 DEFAULT_PORT='7474'
 
@@ -464,6 +464,14 @@ function create {
     exit 1
   fi
 
+  # If directory for the instance exists then a message suggesting run or
+  # install with the option -f is showed
+  if [[ -d "${INEO_HOME}/instances/${instance_name}" ]] && ! ${force_install} ; then
+    printf "\n  ${PURPLE}Error -> A directory for the instance ${BOLD}${instance_name}${PURPLE} already exists\n"
+    printf "\n  ${NF}Maybe the instance already was created or try run the command ${UNDERLINE}install${NF} with the -f option to force the installation\n\n"
+    exit 1
+  fi
+
   # Bolt port only works with Neo4j version 3.0 or higher
   if [[ "${version%%.*}" -lt 3 && "${bolt_port}" ]]; then
     printf "\n  ${PURPLE}Error -> Bolt port only works on Neo4j 3.0 or higher\n"
@@ -483,28 +491,20 @@ function create {
   local tar_name="neo4j-${edition}-${version}-unix.tar.gz"
 
   # Donwload and create tar if doesn't exists
-  if ! [ -f ${INEO_HOME}/neo4j/${tar_name} ] || ${force_download}; then
-    curl -o ${TEMP_DIR}/${tar_name} ${NEO4J_HOSTNAME}/${tar_name}
+  if [[ ! -f "${INEO_HOME}/neo4j/${tar_name}" || ${force_download} ]]; then
+    curl -o "${TEMP_DIR}/${tar_name}" "${NEO4J_HOSTNAME}/${tar_name}"
 
-    mv ${TEMP_DIR}/${tar_name} ${INEO_HOME}/neo4j/${tar_name}
+    mv "${TEMP_DIR}/${tar_name}" "${INEO_HOME}/neo4j/${tar_name}"
   fi
 
   # Create tmp dir to extract
-  mkdir -p ${TEMP_DIR}/${version}
+  mkdir -p "${INEO_HOME}/instances/.${instance_name}"
   # if is not extracted then the tar maybe is not good, so a message suggesting
   # to use -d option is showed
-  if ! tar -xzf ${INEO_HOME}/neo4j/${tar_name} \
-    -C ${TEMP_DIR}/${version} &> /dev/null; then
+  if ! tar --strip 1 -xzf "${INEO_HOME}/neo4j/${tar_name}" \
+    -C "${INEO_HOME}/instances/.${instance_name}" &> /dev/null; then
     printf "\n  ${PURPLE}Error -> The tar file ${BOLD}${tar_name}${PURPLE} can't be extracted\n"
     printf "\n  ${NF}Try run the command ${UNDERLINE}create${NF} with the -d option to download the tar file again\n\n"
-    exit 1
-  fi
-
-  # If directory for the instance exists then a message suggesting run or
-  # install with the option -f is showed
-  if [[ -d "${INEO_HOME}/instances/${instance_name}" ]] && ! ${force_install} ; then
-    printf "\n  ${PURPLE}Error -> A directory for the instance ${BOLD}${instance_name}${PURPLE} already exists\n"
-    printf "\n  ${NF}Maybe the instance already was created or try run the command ${UNDERLINE}install${NF} with the -f option to force the installation\n\n"
     exit 1
   fi
 
@@ -513,13 +513,13 @@ function create {
   fi
 
   # Create a hidden file with the version used in this installation
-  echo "${version}" > "${TEMP_DIR}/${version}/neo4j-${edition}-${version}/.version"
+  echo "${version}" > "${INEO_HOME}/instances/.${instance_name}/.version"
 
   # Create a hidden file with the edition used in this installation
-  echo "${edition}" > "${TEMP_DIR}/${version}/neo4j-${edition}-${version}/.edition"
+  echo "${edition}" > "${INEO_HOME}/instances/.${instance_name}/.edition"
 
   # Finnaly move the instance for installation
-  mv ${TEMP_DIR}/${version}/neo4j-${edition}-${version} ${INEO_HOME}/instances/${instance_name}
+  mv "${INEO_HOME}/instances/.${instance_name}" "${INEO_HOME}/instances/${instance_name}"
 
   # If https or bolt port is not configured, then set them incrementally
   https_port=${https_port:-$((${port} + 1))}
