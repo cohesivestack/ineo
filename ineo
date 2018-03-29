@@ -32,6 +32,8 @@ DEFAULT_PORT='7474'
 
 DEFAULT_EDITION='community'
 
+DEFAULT_AUTO_DELAY=3
+
 # NEO4J_HOSTNAME can be assigned from the environment, so can be changed
 # with testing to use tars in tars_for_test folder
 NEO4J_HOSTNAME="${NEO4J_HOSTNAME:-http://dist.neo4j.org}"
@@ -44,7 +46,7 @@ LOCK_DIR='/tmp/ineo.neo4j.instances.lock'
 
 TEMP_DIR="/tmp/$$.ineo"
 
-SED_CMD="sed -i''"
+SED_CMD="sed -i "
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -136,41 +138,43 @@ function configuration_exists {
 }
 
 # ==============================================================================
-# GET_VERSION
+# GET_INEO
 # ==============================================================================
 
-function get_version {
+# access ineo metadata information of an instance
+function get_ineo {
   local instance_name=$1
-  if [[ -f "${INEO_HOME}/instances/${instance_name}/.version" ]]; then
-    echo $(head -n 1 "${INEO_HOME}/instances/${instance_name}/.version")
+  local config_name=$2
+  
+  # prevent include to override global vars
+  local neo4j_version
+  local neo4j_edition
+  local ineo_start_auto
+  local ineo_start_order
+  local ineo_start_delay
+  
+  if [[ -f "${INEO_HOME}/instances/${instance_name}/.ineo" ]]; then
+    source "${INEO_HOME}/instances/${instance_name}/.ineo"
+    echo ${!config_name}
   else
     echo 'unknown'
   fi
 }
 
+# ==============================================================================
+# GET_VERSION
+# ==============================================================================
+
 function get_major_version {
   local instance_name=$1
-  local version=$(get_version "${instance_name}")
+  local version=$(get_ineo "${instance_name}" neo4j_version)
   echo "${version%%.*}"
 }
 
 function get_minor_version {
   local instance_name=$1
-  local version=$(get_version "${instance_name}")
+  local version=$(get_ineo "${instance_name}" neo4j_version)
   echo "${version%.*}"
-}
-
-# ==============================================================================
-# GET_EDITION
-# ==============================================================================
-
-function get_edition {
-  local instance_name=$1
-  if [[ -f "${INEO_HOME}/instances/${instance_name}/.edition" ]]; then
-    echo $(head -n 1 ${INEO_HOME}/instances/${instance_name}/.edition)
-  else
-    echo 'unknown'
-  fi
 }
 
 # ==============================================================================
@@ -197,6 +201,11 @@ function install {
   if [[ -n "${arg1}" ]]; then
     invalid_command_param "${arg1}" "install"
     exit 1
+  fi
+
+  # If user is root, we assume a "system" installation
+  if [[ "$(whoami)" == "root" ]]; then
+    DEFAULT_HOME=/var/lib/ineo
   fi
 
   # Set INEO_HOME variable
@@ -254,6 +263,29 @@ function install {
 
   # Move the TEMP_DIR to the target directory for ineo
   mv "${TEMP_DIR}" "${INEO_HOME}"
+
+  # Check if ineo service can be installed
+  if [[ $(whoami) == "root" ]]; then
+  	if [[ $(ps -o comm 1 | tail -n 1 ) == "systemd" ]]; then
+      cat >/lib/systemd/system/ineo.service <<EOF
+[Unit]
+Description=ineo - a Neo4j instance manager
+Documentation=https://github.com/cohesivestack/ineo
+After=network.target
+
+[Service]
+Type=oneshot
+Environment="INEO_HOME=/var/lib/ineo"
+ExecStart=/var/lib/ineo/bin/ineo autostart
+ExecStop=/var/lib/ineo/bin/ineo stop -q
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    fi
+  fi
+
 
   printf "\n  ${GREEN}Ineo was successfully installed in ${BOLD}${INEO_HOME}\n"
   printf "\n  ${NF}To start using the ${UNDERLINE}ineo${NF} command reopen your terminal or enter:"
@@ -512,11 +544,17 @@ function create {
     rm -rf "${INEO_HOME}/instances/${instance_name}"
   fi
 
-  # Create a hidden file with the version used in this installation
-  echo "${version}" > "${TEMP_DIR}/${version}/neo4j-${edition}-${version}/.version"
+  # Create a hidden file with meta information to this installation (e.g. version, edition, ...)
+  cat >"${TEMP_DIR}/${version}/neo4j-${edition}-${version}/.ineo" <<EOF
+# installation
+neo4j_version=${version}
+neo4j_edition=${edition}
 
-  # Create a hidden file with the edition used in this installation
-  echo "${edition}" > "${TEMP_DIR}/${version}/neo4j-${edition}-${version}/.edition"
+# autostart
+#ineo_start_auto=0
+#ineo_start_priority=
+#ineo_start_delay=${DEFAULT_AUTO_DELAY}
+EOF
 
   # Finnaly move the instance for installation
   mv ${TEMP_DIR}/${version}/neo4j-${edition}-${version} ${INEO_HOME}/instances/${instance_name}
@@ -620,7 +658,7 @@ function action {
 
     # If no instances then an error messages
     if [[ -z "${INSTANCES}" ]]; then
-      printf "\n  ${PURPLE}Error -> No instances created\n"
+      printf "\n  ${PURPLE}Error -> No instances created yet\n"
       printf "\n  ${NF}Try create an instance with the command:"
       printf "\n    ${CYAN}ineo create [your_instance_name]${NF}\n\n"
     fi
@@ -660,6 +698,70 @@ function action {
 
   done
   printf "\n"
+}
+
+# ==============================================================================
+# AUTOSTART
+# ==============================================================================
+
+function autostart {
+  # If no instances then an error messages
+  if [[ -z "${INSTANCES}" ]]; then
+    printf "\n  ${PURPLE}Error -> No instances created yet\n"
+    printf "\n  ${NF}Try create an instance with the command:"
+    printf "\n    ${CYAN}ineo create [your_instance_name]${NF}\n\n"
+    exit 1
+  fi
+
+  # Pick all instances with ineo_start_auto = 1
+  local instance_name
+  local instance_list
+  local start_auto
+  local start_priority
+  for instance_name in "${INSTANCES[@]}"; do
+    start_auto=$(get_ineo "${instance_name}" "ineo_start_auto")
+    if [[ "${start_auto}" == 1 ]]; then
+      start_priority=$(get_ineo "${instance_name}" "ineo_start_priority")
+      if [[ -z "${start_priority}" ]]; then
+        start_priority=0
+      fi
+      instance_list+="${start_priority}	${instance_name}\n"
+    fi
+  done
+
+  # Order instances by priority
+  local instances=()
+  for instance_name in "$(echo -e $instance_list | sort -rn)"; do
+    instances+=($(echo "${instance_name}" | cut -f2 -d' '))
+  done
+
+  local start_delay
+  local last=${instances[@]: -1:1}
+  for instance_name in "${instances[@]}"; do
+    if [[ ! -f "${INEO_HOME}/instances/${instance_name}/bin/neo4j" ]]; then
+      printf "\n  ${PURPLE}Error -> The instance ${BOLD}${instance_name}${PURPLE} seems that is not properly installed\n"
+      printf "\n  ${NF}You can recreate the instance with the command:"
+      printf "\n    ${CYAN}ineo create -f ${instance_name}${NF}\n\n"
+      exit 1
+    fi
+	
+
+    printf "\n  start '${instance_name}'\n  "
+
+    "${INEO_HOME}/instances/${instance_name}/bin/neo4j" "start"
+    
+    # don't delay if this instance is the last to be autostarted
+    if [[ "${instance_name}" != "${last}" ]]; then
+      # delay start of next instance depending on delay setting
+      # this can prevents server load peaks
+      start_delay=$(get_ineo "${instance_name}" "ineo_start_delay")
+      if [[ -z "${start_delay}" ]]; then
+        start_delay=${DEFAULT_AUTO_DELAY}
+      fi
+      printf "  delay next start by '${start_delay}' secs\n  "
+      sleep "${start_delay}"
+    fi
+  done
 }
 
 # ==============================================================================
@@ -852,8 +954,8 @@ function instances {
         ssl="(default)"
       fi
 
-      local version=$(get_version "${instance_name}")
-      local edition=$(get_edition "${instance_name}")
+      local version=$(get_ineo "${instance_name}" neo4j_version)
+      local edition=$(get_ineo "${instance_name}" neo4j_edition)
 
       printf "\n  > instance '${instance_name}'"
       printf "\n    VERSION: ${version}"
@@ -1514,6 +1616,7 @@ COMMAND=$1
 if [[ "$( uname )" == "Darwin" ]]; then
   # sed command is just incompatible with -i option
 	SED_CMD="sed -i ''"
+	exit
 fi
 
 set_instances
@@ -1552,8 +1655,11 @@ case "${COMMAND}" in
   destroy)
     destroy $@
     ;;
-  console|start|start-no-wait|stop|restart|status|info)
+  console|start|stop|restart|status|info)
     action $@
+    ;;
+  autostart)
+    autostart $@
     ;;
   delete-db)
     delete-db $@
