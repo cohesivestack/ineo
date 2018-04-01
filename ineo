@@ -1616,7 +1616,6 @@ COMMAND=$1
 if [[ "$( uname )" == "Darwin" ]]; then
   # sed command is just incompatible with -i option
 	SED_CMD="sed -i ''"
-	exit
 fi
 
 set_instances
