@@ -491,7 +491,7 @@ function create {
   local tar_name="neo4j-${edition}-${version}-unix.tar.gz"
 
   # Donwload and create tar if doesn't exists
-  if [[ ! -f "${INEO_HOME}/neo4j/${tar_name}" || ${force_download} ]]; then
+  if [[ ! -f "${INEO_HOME}/neo4j/${tar_name}" || "${force_download}" == "true" ]]; then
     curl -o "${TEMP_DIR}/${tar_name}" "${NEO4J_HOSTNAME}/${tar_name}"
 
     mv "${TEMP_DIR}/${tar_name}" "${INEO_HOME}/neo4j/${tar_name}"
