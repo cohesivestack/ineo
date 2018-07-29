@@ -47,7 +47,7 @@ LOCK_DIR='/tmp/ineo.neo4j.instances.lock'
 TEMP_DIR="/tmp/$$.ineo"
 
 SED_CMD="sed -i "
-OWNER_CMD="stat -c '%U'"
+OWNER_CMD="stat -c %U"
 
 # Regular Colors
 BLACK='\033[0;30m'
