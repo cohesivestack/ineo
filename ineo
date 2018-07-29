@@ -26,7 +26,7 @@ VERSION=1.1.0
 
 DEFAULT_HOME="${HOME}/.ineo"
 
-DEFAULT_VERSION='3.3.1'
+DEFAULT_VERSION='3.4.5'
 
 DEFAULT_PORT='7474'
 
@@ -745,10 +745,14 @@ function autostart {
       exit 1
     fi
 	
+    # find out whose instance we are going to start
+    local owner=$(stat -c '%U' "${INEO_HOME}/instances/${instance_name}/bin/neo4j")
 
     printf "\n  start '${instance_name}'\n  "
 
-    "${INEO_HOME}/instances/${instance_name}/bin/neo4j" "start"
+    # because we are in autostart, we want to start the instances as if their owner would have started them,
+    # so they are able to stop and administrate them themselves
+    sudo -n -u "${owner}" -- "${INEO_HOME}/instances/${instance_name}/bin/neo4j" "start"
     
     # don't delay if this instance is the last to be autostarted
     if [[ "${instance_name}" != "${last}" ]]; then
