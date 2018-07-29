@@ -47,6 +47,7 @@ LOCK_DIR='/tmp/ineo.neo4j.instances.lock'
 TEMP_DIR="/tmp/$$.ineo"
 
 SED_CMD="sed -i "
+OWNER_CMD="stat -c '%U'"
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -749,13 +750,13 @@ function autostart {
     fi
 	
     # find out whose instance we are going to start
-    local owner=$(stat -c '%U' "${INEO_HOME}/instances/${instance_name}/bin/neo4j")
+    local owner=$(${OWNER_CMD} "${INEO_HOME}/instances/${instance_name}/bin/neo4j")
 
     printf "\n  start '${instance_name}'\n  "
 
     # because we are in autostart, we want to start the instances as if their owner would have started them,
     # so they are able to stop and administrate them themselves
-    sudo -n -u "${owner}" -- "${INEO_HOME}/instances/${instance_name}/bin/neo4j" "start"
+    sudo -n -u ${owner} -- "${INEO_HOME}/instances/${instance_name}/bin/neo4j" "start"
     
     # don't delay if this instance is the last to be autostarted
     if [[ "${instance_name}" != "${last}" ]]; then
@@ -1623,6 +1624,7 @@ COMMAND=$1
 if [[ "$( uname )" == "Darwin" ]]; then
   # sed command is just incompatible with -i option
 	SED_CMD="sed -i ''"
+	OWNER_CMD="stat -f %Su"
 fi
 
 set_instances
