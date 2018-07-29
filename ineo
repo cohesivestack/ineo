@@ -283,6 +283,9 @@ RemainAfterExit=yes
 [Install]
 WantedBy=multi-user.target
 EOF
+
+      # enable service so instances get autostarted if marked as such
+      systemctl enable ineo
     fi
   fi
 
