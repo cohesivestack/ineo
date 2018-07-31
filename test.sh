@@ -1127,10 +1127,10 @@ tests+=('ExecuteActionsOnVariousInstancesCorrectly')
 
 
 # ==============================================================================
-# TEST INSTANCES
+# TEST LIST
 # ==============================================================================
 
-InstancesWithIncorrectParameters() {
+ListWithIncorrectParameters() {
   setup "${FUNCNAME[0]}"
 
   params=(
@@ -1140,22 +1140,22 @@ InstancesWithIncorrectParameters() {
 
   local param
   for param in "${params[@]}"; do
-    assert_raises "./ineo instances $param" 1
-    assert        "./ineo instances $param" \
+    assert_raises "./ineo list $param" 1
+    assert        "./ineo list $param" \
 "
   ${PURPLE}Error -> Invalid argument or option ${BOLD}$param
 
-  ${NF}View help about the command ${UNDERLINE}instances${NF} typing:
-    ${CYAN}ineo help instances${NF}
+  ${NF}View help about the command ${UNDERLINE}list${NF} typing:
+    ${CYAN}ineo help list${NF}
 "
   done
 
-  assert_end InstancesWithIncorrectParameters
+  assert_end ListWithIncorrectParameters
 }
-tests+=('InstancesWithIncorrectParameters')
+tests+=('ListWithIncorrectParameters')
 
 
-InstancesCorrectly() {
+ListCorrectly() {
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
       setup "${FUNCNAME[0]} ${version}-${edition}"
@@ -1166,9 +1166,9 @@ InstancesCorrectly() {
       assert_raises "./ineo create -p7474 -s8484 -e $edition -v $version twitter" 0
       assert_raises "./ineo create -p7575 -s8585 -e $edition -v $version facebook" 0
 
-      assert_raises "./ineo instances" 0
+      assert_raises "./ineo list" 0
       if [ ${version%%.*} -lt 3 ]; then
-        assert        "./ineo instances" \
+        assert        "./ineo list" \
 "
   > instance 'facebook'
     VERSION: $version
@@ -1185,7 +1185,7 @@ InstancesCorrectly() {
     HTTPS:   8484
 "
       else
-        assert        "./ineo instances" \
+        assert        "./ineo list" \
 "
   > instance 'facebook'
     VERSION: $version
@@ -1207,9 +1207,68 @@ InstancesCorrectly() {
     done
   done
 
-  assert_end InstancesCorrectly
+  assert_end ListCorrectly
 }
-tests+=('InstancesCorrectly')
+tests+=('ListCorrectly')
+
+
+ListAliases() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+
+  if [ ${version%%.*} -lt 3 ]; then
+    assert        "./ineo ls" \
+"
+  > instance 'twitter'
+    VERSION: ${versions[-1]}
+    EDITION: ${editions[0]}
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   7475
+"
+      else
+        assert        "./ineo ls" \
+"
+  > instance 'twitter'
+    VERSION: ${versions[-1]}
+    EDITION: ${editions[0]}
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   7475
+    BOLT:    7476
+"
+  fi
+
+  if [ ${version%%.*} -lt 3 ]; then
+    assert        "./ineo instances" \
+"
+  > instance 'twitter'
+    VERSION: ${versions[-1]}
+    EDITION: ${editions[0]}
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   7475
+"
+      else
+        assert        "./ineo instances" \
+"
+  > instance 'twitter'
+    VERSION: ${versions[-1]}
+    EDITION: ${editions[0]}
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   7475
+    BOLT:    7476
+"
+  fi
+
+  assert_end ListAliases
+}
+tests+=('ListAliases')
 
 
 # ==============================================================================
@@ -1319,7 +1378,7 @@ StartAShellWithANonExistentInstance() {
   ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter
 
   ${NF}List installed instances typing:
-    ${CYAN}ineo instances${NF}
+    ${CYAN}ineo list${NF}
 "
 
   assert_end StartAShellWithANonExistentInstance
@@ -1463,7 +1522,7 @@ DestroyANonExistentInstance() {
   ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter
 
   ${NF}List installed instances typing:
-    ${CYAN}ineo instances${NF}
+    ${CYAN}ineo list${NF}
 "
 
   assert_end DestroyANonExistentInstance
@@ -1613,7 +1672,7 @@ SetPortOnANonExistentInstance() {
   ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter${PURPLE} or is not properly installed
 
   ${NF}List installed instances typing:
-    ${CYAN}ineo instances${NF}
+    ${CYAN}ineo list${NF}
 "
 
   assert_end SetPortOnANonExistentInstance
@@ -1845,7 +1904,7 @@ ClearDataOnANonExistentInstance() {
   ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter${PURPLE} or is not properly installed
 
   ${NF}List installed instances typing:
-    ${CYAN}ineo instances${NF}
+    ${CYAN}ineo list${NF}
 "
 
   assert_end ClearDataOnANonExistentInstance
@@ -2069,6 +2128,8 @@ if [[ -z "$test_name" ]]; then
   for test in "${tests[@]}"; do
     "$test"
   done
+  echo -e "\nTests executed in ${SECONDS}sec"
 else
   "$test_name"
 fi
+

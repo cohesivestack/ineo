@@ -699,7 +699,7 @@ function shell {
   if [[ ! -d "${INEO_HOME}/instances/${instance_name}" ]]; then
     printf "\n  ${PURPLE}Error -> There is not an instance with the name ${BOLD}${instance_name}\n"
     printf "\n  ${NF}List installed instances typing:"
-    printf "\n    ${CYAN}ineo instances${NF}\n\n"
+    printf "\n    ${CYAN}ineo list${NF}\n\n"
     exit 1
   fi
 
@@ -761,7 +761,7 @@ function destroy {
   if [[ ! -d "${INEO_HOME}/instances/${instance_name}" ]]; then
     printf "\n  ${PURPLE}Error -> There is not an instance with the name ${BOLD}${instance_name}\n"
     printf "\n  ${NF}List installed instances typing:"
-    printf "\n    ${CYAN}ineo instances${NF}"
+    printf "\n    ${CYAN}ineo list${NF}"
     exit 1
   fi
 
@@ -799,12 +799,12 @@ function destroy {
 }
 
 # ==============================================================================
-# INSTANCES
+# LIST
 # ==============================================================================
 
-function instances {
+function list {
   if [[ -n "${2}" ]]; then
-    invalid_command_param "${2}" 'instances'
+    invalid_command_param "${2}" 'list'
     exit 1
   fi
 
@@ -1021,7 +1021,7 @@ function set-port {
   if ! (configuration_exists ${instance_name}); then
     printf "\n  ${PURPLE}Error -> There is not an instance with the name ${BOLD}${instance_name}${PURPLE} or is not properly installed\n"
     printf "\n  ${NF}List installed instances typing:"
-    printf "\n    ${CYAN}ineo instances${NF}\n\n"
+    printf "\n    ${CYAN}ineo list${NF}\n\n"
     exit 1
   fi
 
@@ -1085,7 +1085,7 @@ function delete-db {
   if [[ ! -d "${INEO_HOME}/instances/${instance_name}" ]]; then
     printf "\n  ${PURPLE}Error -> There is not an instance with the name ${BOLD}${instance_name}${PURPLE} or is not properly installed\n"
     printf "\n  ${NF}List installed instances typing:"
-    printf "\n    ${CYAN}ineo instances${NF}\n\n"
+    printf "\n    ${CYAN}ineo list${NF}\n\n"
     exit 1
   fi
 
@@ -1214,7 +1214,7 @@ HELP="
     create          Create a new instance with a specific <name>
     set-port        Change the port of a specific instance <name>
     versions        Show the Neo4j versions available for installation
-    instances       Show the information about installed instances
+    list            List information about installed instances
 
     start           Start Neo4j instances
     stop            Stop Neo4j instances
@@ -1307,14 +1307,19 @@ HELP_VERSIONS="
 
 "
 
-HELP_INSTANCES="
+HELP_LIST="
   USAGE:
-    instances
+    list
 
   DESCRIPTION:
-    Show the information about installed instances
+    List information about installed instances
+
+  ALIASES:
+    ls, instances
 
 "
+HELP_LS=${HELP_LIST}
+HELP_INSTANCES=${HELP_LIST}
 
 HELP_START="
   USAGE:
@@ -1573,8 +1578,8 @@ case "${COMMAND}" in
   version)
     version $@
     ;;
-  instances)
-    instances $@
+  list|ls|instances)
+    list $@
     ;;
   help)
     help $2
