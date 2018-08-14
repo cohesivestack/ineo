@@ -684,7 +684,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=6)); do
-		  setup "${FUNCNAME[0]} ${params[i]} (${params[i+1]}-${params[i+2]}-${params[i+3]}-${params[i+4]}-${params[i+5]})"
+    setup "${FUNCNAME[0]} ${params[i]} (${params[i+1]}-${params[i+2]}-${params[i+3]}-${params[i+4]}-${params[i+5]})"
 
     local port=${params[i+1]}
     local ssl_port=${params[i+2]}
@@ -1787,10 +1787,6 @@ SetConfigWithIncorrectParameters() {
 
   local params=(
     "-x" 'x'
-    "-x -y" 'x'
-    "-x twitter" 'x'
-    "dbms.directories.logs logs root" 'root'
-    "-x dbms.directories.logs logs" 'x'
   )
 
   local i
@@ -1805,9 +1801,332 @@ SetConfigWithIncorrectParameters() {
 "
   done
 
+  params=(
+    "instance"
+    "instance param"
+    "instance param value more"
+    "-d instance"
+    "-d instance param value"
+  )
+
+  for ((i=0; i<${#params[*]}; i+=1)); do
+    assert_raises "./ineo set-config ${params[i]}" 1
+    assert        "./ineo set-config ${params[i]}" \
+"
+  ${PURPLE}Error -> ${BOLD}set-config${PURPLE} requires an instance name, parameter and value
+
+  ${NF}View help about the command ${UNDERLINE}set-config${NF} typing:
+    ${CYAN}ineo help set-config${NF}
+"
+  done
+
   assert_end SetConfigWithIncorrectParameters
 }
 tests+=('SetConfigWithIncorrectParameters')
+
+SetConfigWithCorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+
+  # add non-existing param
+  assert_raises "grep twitter.one.a $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 1
+  assert_raises "./ineo set-config twitter twitter.one.a 1" 0
+  assert_raises "grep twitter.one.a $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep twitter.one.a $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "twitter.one.a=1"
+
+  # uncomment existing param
+  assert_raises "grep '^#dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^#dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "#dbms.active_database=graph.db"
+  assert_raises "./ineo set-config twitter dbms.active_database graph.db" 0
+  assert_raises "grep '^dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "dbms.active_database=graph.db"
+
+  # comment existing param
+  assert_raises "grep '^dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "dbms.connector.bolt.enabled=true"
+  assert_raises "./ineo set-config -d twitter dbms.connector.bolt.enabled" 0
+  assert_raises "grep '^#dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^#dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "#dbms.connector.bolt.enabled=true"
+
+  assert "./ineo set-config -q twitter dbms.connector.bolt.enabled true" ""
+  assert "./ineo set-config -dq twitter dbms.connector.bolt.enabled" ""
+
+  assert_end SetConfigWithCorrectParameters
+}
+tests+=('SetConfigWithCorrectParameters')
+
+# ==============================================================================
+# TEST GET-CONFIG
+# ==============================================================================
+
+GetConfigWithIncorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  local params=(
+    "-x" 'x'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo get-config ${params[i]}" 1
+    assert        "./ineo get-config ${params[i]}" \
+"
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
+
+  ${NF}View help about the command ${UNDERLINE}get-config${NF} typing:
+    ${CYAN}ineo help get-config${NF}
+"
+  done
+
+  params=(
+    "instance"
+    "-a instance param"
+  )
+
+  for ((i=0; i<${#params[*]}; i+=1)); do
+    assert_raises "./ineo get-config ${params[i]}" 1
+    assert        "./ineo get-config ${params[i]}" \
+"
+  ${PURPLE}Error -> ${BOLD}get-config${PURPLE} requires an instance name and parameter
+
+  ${NF}View help about the command ${UNDERLINE}get-config${NF} typing:
+    ${CYAN}ineo help get-config${NF}
+"
+  done
+
+  assert_end GetConfigWithIncorrectParameters
+}
+tests+=('GetConfigWithIncorrectParameters')
+
+GetConfigWithCorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+  assert_raises "./ineo create facebook" 0
+  assert_raises "./ineo create apple" 0
+
+  local params=(
+    "twitter"
+    "facebook"
+    "apple"
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=1)); do
+    # insert param to all instances
+    assert_raises "./ineo set-config ${params[i]} all.one.a 1" 0
+    assert_raises "./ineo set-config ${params[i]} all.one.b 2" 0
+    assert_raises "./ineo set-config ${params[i]} all.two.a 3" 0
+    assert_raises "./ineo set-config ${params[i]} all.two.b 4" 0
+  done
+
+  # insert param to all but one instance
+  assert_raises "./ineo set-config twitter twitter.one.a 1" 0
+  assert_raises "./ineo set-config twitter twitter.one.b 2" 0
+  assert_raises "./ineo set-config apple apple.one.a 1" 0
+  assert_raises "./ineo set-config apple apple.one.b 2" 0
+
+  # try all formats with single instance and single param
+  assert_raises "./ineo get-config twitter twitter.one.a" 0
+  assert        "./ineo get-config twitter twitter.one.a" "twitter.one.a=1"
+
+  assert_raises "./ineo get-config -o list twitter twitter.one.a" 0
+  assert        "./ineo get-config -o list twitter twitter.one.a" \
+"
+  > instance 'twitter'
+    twitter.one.a=1"
+
+  assert_raises "./ineo get-config -o ini twitter twitter.one.a" 0
+  assert        "./ineo get-config -o ini twitter twitter.one.a" "[twitter]\ntwitter.one.a=1"
+
+  assert_raises "./ineo get-config -o line twitter twitter.one.a" 0
+  assert        "./ineo get-config -o line twitter twitter.one.a" "twitter.one.a=1"
+
+  assert_raises "./ineo get-config -o value twitter twitter.one.a" 0
+  assert        "./ineo get-config -o value twitter twitter.one.a" "1"
+
+
+  # try all formats with all instance and single param existing in all instances
+  assert_raises "./ineo get-config -a all.one.a" 0
+  assert        "./ineo get-config -a all.one.a" \
+"
+  > instance 'apple'
+    all.one.a=1
+
+
+  > instance 'facebook'
+    all.one.a=1
+
+
+  > instance 'twitter'
+    all.one.a=1"
+
+  assert_raises "./ineo get-config -a -o list all.one.a" 0
+  assert        "./ineo get-config -a -o list all.one.a" \
+"
+  > instance 'apple'
+    all.one.a=1
+
+
+  > instance 'facebook'
+    all.one.a=1
+
+
+  > instance 'twitter'
+    all.one.a=1"
+
+
+  assert_raises "./ineo get-config -a -o ini all.one.a" 0
+  assert        "./ineo get-config -a -o ini all.one.a" \
+"[apple]
+all.one.a=1
+
+[facebook]
+all.one.a=1
+
+[twitter]
+all.one.a=1"
+
+  assert_raises "./ineo get-config -a -o line all.one.a" 0
+  assert        "./ineo get-config -a -o line all.one.a" \
+"
+  > instance 'apple'
+    all.one.a=1
+
+
+  > instance 'facebook'
+    all.one.a=1
+
+
+  > instance 'twitter'
+    all.one.a=1"
+
+
+  assert_raises "./ineo get-config -a -o value all.one.a" 0
+  assert        "./ineo get-config -a -o value all.one.a" \
+"
+  > instance 'apple'
+    all.one.a=1
+
+
+  > instance 'facebook'
+    all.one.a=1
+
+
+  > instance 'twitter'
+    all.one.a=1"
+
+
+  # try multi formats with all instance and single param existing in one instance
+  assert_raises "./ineo get-config -a -o list twitter.one.a" 0
+  assert        "./ineo get-config -a -o list twitter.one.a" \
+"
+  > instance 'apple'
+    WARNING: \"twitter.one.a\" doesn't exist in the \"apple\" configuration
+
+
+  > instance 'facebook'
+    WARNING: \"twitter.one.a\" doesn't exist in the \"facebook\" configuration
+
+
+  > instance 'twitter'
+    twitter.one.a=1"
+
+  assert_raises "./ineo get-config -a -o ini twitter.one.a" 0
+  assert        "./ineo get-config -a -o ini twitter.one.a" \
+"[apple]
+WARNING: \"twitter.one.a\" doesn't exist in the \"apple\" configuration
+
+[facebook]
+WARNING: \"twitter.one.a\" doesn't exist in the \"facebook\" configuration
+
+[twitter]
+twitter.one.a=1"
+
+
+  # try quiet mode on multi formats with all instance and single param existing in one instance
+  assert_raises "./ineo get-config -a -q -o list twitter.one.a" 0
+  assert        "./ineo get-config -a -q -o list twitter.one.a" \
+"
+  > instance 'apple'
+
+
+  > instance 'facebook'
+
+
+  > instance 'twitter'
+    twitter.one.a=1"
+
+  assert_raises "./ineo get-config -a -q -o ini twitter.one.a" 0
+  assert        "./ineo get-config -a -q -o ini twitter.one.a" \
+"[apple]
+[facebook]
+[twitter]
+twitter.one.a=1"
+
+
+  # try all formats with one instance and asterix param
+  assert_raises "./ineo get-config -o list twitter twitter.one.*" 0
+  assert        "./ineo get-config -o list twitter twitter.one.*" \
+"
+  > instance 'twitter'
+    twitter.one.a=1
+    twitter.one.b=2"
+
+  assert_raises "./ineo get-config -o ini twitter twitter.one.*" 0
+  assert        "./ineo get-config -o ini twitter twitter.one.*" \
+"[twitter]
+twitter.one.a=1
+twitter.one.b=2"
+
+  assert_raises "./ineo get-config -o line twitter twitter.one.*" 0
+  assert        "./ineo get-config -o line twitter twitter.one.*" \
+"twitter.one.a=1
+twitter.one.b=2"
+
+  assert_raises "./ineo get-config -o line twitter all.*.b" 0
+  assert        "./ineo get-config -o line twitter all.*.b" \
+"all.one.b=2
+all.two.b=4"
+
+  assert_raises "./ineo get-config -o value twitter twitter.one.*" 0
+  assert        "./ineo get-config -o value twitter twitter.one.*" \
+"twitter.one.a=1
+twitter.one.b=2"
+
+  # try multi formats with all instance and asterix param
+  assert_raises "./ineo get-config -a -o list twitter.one.*" 0
+  assert        "./ineo get-config -a -o list twitter.one.*" \
+"
+  > instance 'apple'
+
+
+  > instance 'facebook'
+
+
+  > instance 'twitter'
+    twitter.one.a=1
+    twitter.one.b=2"
+
+  assert_raises "./ineo get-config -a -o ini twitter.one.*" 0
+  assert        "./ineo get-config -a -o ini twitter.one.*" \
+"[apple]
+[facebook]
+[twitter]
+twitter.one.a=1
+twitter.one.b=2"
+
+
+  assert_end GetConfigWithCorrectParameters
+}
+tests+=('GetConfigWithCorrectParameters')
 
 # ==============================================================================
 # TEST CLEAR-DATA
@@ -2102,3 +2421,5 @@ if [[ -z "$test_name" ]]; then
 else
   "$test_name"
 fi
+
+# vim: syntax=sh ts=2 sw=2 et sr softtabstop=2

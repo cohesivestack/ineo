@@ -1,6 +1,6 @@
-#!/bin/bash
-# ineo 1.1.0 - Neo4j Instances Manager
-# Copyright (C) 2015-2018 Carlos Forero
+  #!/bin/bash
+  # ineo 1.1.0 - Neo4j Instances Manager
+  # Copyright (C) 2015-2018 Carlos Forero
 #
 # http://github.com/carlosforero/ineo
 #
@@ -44,7 +44,7 @@ LOCK_DIR='/tmp/ineo.neo4j.instances.lock'
 
 TEMP_DIR="/tmp/$$.ineo"
 
-SED_CMD="sed -i''"
+SED_CMD="sed -i "
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -1105,14 +1105,20 @@ function set-port {
 
 # Command
 function get-config {
-  local quiet=false
+  local all=false
+  local config=
+  local output=line
   local param=
-  local output=list
+  local quiet=false
+  local wildcard=false
 
   shift
-  while getopts ":o:q" optname
+  while getopts ":o:aq" optname
   do
     case "${optname}" in
+      a)
+        all=true
+        ;;
       o)
         output=${OPTARG}
         ;;
@@ -1120,14 +1126,21 @@ function get-config {
         quiet=true
         ;;
       *)
-        invalid_command_param "${OPTARG}" "configuration"
+        invalid_command_param "${OPTARG}" "get-config"
         exit 1
         ;;
     esac
   done
   shift $((OPTIND-1))
+  
+  if [[ ("${all}" == true && "${#}" -ne 1) || ("${all}" == false && "${#}" -lt 2) ]]; then
+    printf "\n  ${PURPLE}Error -> ${BOLD}get-config${PURPLE} requires an instance name and parameter\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}get-config${NF} typing:"
+    printf "\n    ${CYAN}ineo help get-config${NF}\n\n"
+    exit 1
+  fi
 
-  if [[ ! "${output}" =~ ^(list|ini|value)$ ]]; then
+  if [[ ! "${output}" =~ ^(list|ini|line|value)$ ]]; then
     printf "\n  ${PURPLE}Error -> ${BOLD}get-config${PURPLE} has no output ${BOLD}${output}\n"
     printf "\n  ${NF}View help about the command ${UNDERLINE}get-config${NF} typing:"
     printf "\n    ${CYAN}ineo help get-config${NF}\n\n"
@@ -1142,7 +1155,7 @@ function get-config {
   local instances=( ${@} )
 
   # If is not specified the instance name, then apply on all instances
-  if [[ "${#instances[@]}" == 0 ]]; then
+  if [[ "${all}" == true ]]; then
 
     # If no instances then an error messages
     if [[ -z "${INSTANCES}" ]]; then
@@ -1151,16 +1164,20 @@ function get-config {
       printf "\n    ${CYAN}ineo create [your_instance_name]${NF}\n\n"
     fi
 
-    # Confirmation
-    if [[ "${quiet}" == false ]]; then
-      printf "\n  ${YELLOW}Warning -> A Neo4j instance name is not specified.${NF}\n\n"
-      read -p  "  Are you sure you want to ${action_name} all instances? (y/n) " -r
-      echo    # (optional) move to a new line
-      if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
-        exit 1
-      fi
-    fi
     instances=("${INSTANCES[@]}")
+  fi
+
+  if [[ "${param}" =~ "*" ]]; then
+    wildcard=true
+
+    # some outputs don't make sense with wildcard search
+    if [[ "${param}" =~ "*" && "${output}" == "value"  ]]; then
+      output="line"
+    fi
+  fi
+  # some outputs don't make sense with multiple instances
+  if [[ ${#instances[@]} -gt 1 && ! "${output}" =~ ^(list|ini)$  ]]; then
+    output="list"
   fi
 
   local instance_name
@@ -1172,31 +1189,44 @@ function get-config {
       exit 1
     fi
 
+    config=$(configuration_get "${instance_name}" "${param}" | sort) 
+
+    # give a warning, if querying for a specific value, which doesn't exist in the configuration
+    if [[ "${wildcard}" == false && "${#config}" -eq 0 && "${quiet}" == false ]]; then
+      config="WARNING: \"${param}\" doesn't exist in the \"${instance_name}\" configuration"
+    fi
+
+    IFS=$'\n'
     case "${output}" in
-    value)
-      # this doesn't make sense for multiple instances, but is very nice for coding
-      for value in $(configuration_get "${instance_name}" "${param}")
-      do
-        echo "${value#*=}"
-      done
-      ;;
-    ini)
-      # ini like output, where instance name is the section name
-      echo "[${instance_name}]"
-      echo -e "$(configuration_get "${instance_name}" "${param}")\n"
-      ;;
-    *)
-      printf "\n  > instance '${instance_name}'"
-      for value in $(configuration_get "${instance_name}" "${param}")
-      do
-        printf "\n    ${value}"
-      done
+      line)
+        # this doesn't make sense for multiple instances, but is very nice for coding
+        echo -e "${config}"
+        ;;
+      value)
+        # this doesn't make sense for multiple instances, but is very nice for coding
+        for value in ${config}
+        do
+          echo "${value#*=}"
+        done
+        ;;
+      ini)
+        # ini like output, where instance name is the section name
+        printf "[${instance_name}]"
+        if [[ "${#config}" -gt 0 ]]; then
+          printf "\n${config}\n"
+        fi
+        printf "\n"
+        ;;
+      *)
+        printf "\n  > instance '${instance_name}'"
+        for value in ${config}
+        do
+          printf "\n    ${value}"
+        done
+        printf "\n\n"
     esac 
 
   done
-  printf "\n"
-
-exit
 
 }
 
@@ -1208,8 +1238,8 @@ exit
 function set-config {
   local disable=false
   local quiet=false
-  local value=
   local param=
+  local value=
 
   shift
   while getopts ":dq" optname
@@ -1229,8 +1259,8 @@ function set-config {
   done
   shift $((OPTIND-1))
 
-  if [[ "${#}" -lt 2 || ("${disable}" == true && "${#}" -lt 1) ]]; then
-    printf "\n  ${PURPLE}Error -> ${BOLD}set-config${PURPLE} requires an instance name, config parameter and value\n"
+  if [[ ("${disable}" == true && "${#}" -ne 2) || ("${disable}" == false && "${#}" -ne 3) ]]; then
+    printf "\n  ${PURPLE}Error -> ${BOLD}set-config${PURPLE} requires an instance name, parameter and value\n"
     printf "\n  ${NF}View help about the command ${UNDERLINE}set-config${NF} typing:"
     printf "\n    ${CYAN}ineo help set-config${NF}\n\n"
     exit 1
@@ -1250,28 +1280,6 @@ function set-config {
   
   local instances=( ${@} )
 
-  # If is not specified the instance name, then apply on all instances
-  if [[ "${#instances[@]}" == 0 ]]; then
-
-    # If no instances then an error messages
-    if [[ -z "${INSTANCES}" ]]; then
-      printf "\n  ${PURPLE}Error -> No instances created\n"
-      printf "\n  ${NF}Try create an instance with the command:"
-      printf "\n    ${CYAN}ineo create [your_instance_name]${NF}\n\n"
-    fi
-
-    # Confirmation
-    if [[ "${quiet}" == false ]]; then
-      printf "\n  ${YELLOW}Warning -> A Neo4j instance name is not specified.${NF}\n\n"
-      read -p  "  Are you sure you want to ${action_name} all instances? (y/n) " -r
-      echo    # (optional) move to a new line
-      if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
-        exit 1
-      fi
-    fi
-    instances=("${INSTANCES[@]}")
-  fi
-
   local instance_name
   for instance_name in "${instances[@]}"; do
     if ! $(configuration_exists ${instance_name}); then
@@ -1281,19 +1289,17 @@ function set-config {
       exit 1
     fi
 
-    printf "\n  > instance '${instance_name}'"
+    ${quiet} || printf "\n  > instance '${instance_name}'"
     if [[ "${disable}" == false ]]; then
       $(configuration_set "${instance_name}" "${param}" "${value}")
-      printf "\n  ${GREEN}Parameter ${param} set to ${BOLD}${value}${GREEN}.${NF}\n\n"
+      ${quiet} || printf "\n  ${GREEN}Parameter ${param} set to ${BOLD}${value}${GREEN}.${NF}\n\n"
     else
       $(configuration_comment "${instance_name}" "${param}" "${disable}")
-      printf "\n  ${GREEN}Parameter ${param} has been ${BOLD}disabled${GREEN}.${NF}\n\n"
+      ${quiet} || printf "\n  ${GREEN}Parameter ${param} has been ${BOLD}disabled${GREEN}.${NF}\n\n"
     fi
 
   done
-  printf "\n"
-
-exit
+  ${quiet} || printf "\n"
 
 }
 
@@ -1556,47 +1562,51 @@ HELP_SET_PORT="
 
 HELP_GET_CONFIG="
   USAGE:
-    get-config [options] <instance_names ...> <config_param>
+    get-config [options] <instance_names ...> <parameter>
 
   DESCRIPTION:
     Read settings from configuration file
 
   ARGUMENTS:
-    [instance_names ...]  Name of one or more instances to read (optional)
+    [instance_names ...]  Name of one or more instances to read
 
-                          If this argument is not specified then ineo tries
-                          to read a configuration from all instances
+    <parameter>           Name of the Neo4j configuration parameter
 
-    <config_param>        Name of the Neo4j configuration parameter
-
-                          An '*' can be used as a placeholder to extract
+                          An '*' can be used as a wildcard to extract
                           multiple settings
 
   OPTIONS:
-    -o <format> Define output format (ini/list/value)
-    -q          Show settings without confirmation
+    -a          Read all instances
+
+                If this option is used then don't use instance argument
+
+    -o <format> Define output format (list/ini/line/value)
+
+                Line and value can't be used on multiple instances.
+                Value can't be used with a wildcard parameter
+
+    -q          Suppress warnings, if paramater doesn't exist
 
 "
 
 HELP_SET_CONFIG="
   USAGE:
-    set-config [options] <instance_names ...> <config_param> <config_value>
+    set-config [options] <instance_name> <parameter> <value>
 
   DESCRIPTION:
     Set a configuration value. If parameter doesn't exist in config file yet,
     it will be appended.
 
   ARGUMENTS:
-    [instance_names ...]  Name of one or more instances to configure (optional)
-
-                          If this argument is not specified then ineo tries
-                          to set this configuration to all instances
-
-    <config_param>        Name of the Neo4j configuration parameter
-    <config_value>        Value of the Neo4j configuration parameter
+    <instance_name>   Name of instance to configure
+    <paramenter>      Name of the Neo4j configuration parameter
+    <value>           Value of the Neo4j configuration parameter
 
   OPTIONS:
-    -d    Disable/comment the parameter
+    -d    Disable (comment out) the parameter.
+
+          If this option is used the last value is not required
+
     -q    Write setting without confirmation
 
 "
