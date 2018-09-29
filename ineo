@@ -272,14 +272,16 @@ function install {
 [Unit]
 Description=ineo - a Neo4j instance manager
 Documentation=https://github.com/cohesivestack/ineo
-After=network.target
+After=network.target remote-fs.target
 
 [Service]
 Type=oneshot
+SyslogIdentifier=ineo
 Environment="INEO_HOME=/var/lib/ineo"
 ExecStart=/var/lib/ineo/bin/ineo autostart
 ExecStop=/var/lib/ineo/bin/ineo stop -q
 RemainAfterExit=yes
+LimitNOFILE=20000
 
 [Install]
 WantedBy=multi-user.target
