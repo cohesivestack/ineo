@@ -183,13 +183,17 @@ function get_minor_version {
 # ==============================================================================
 
 function install {
+  local as_service=false
 
   shift
-  while getopts ":d:" optname
+  while getopts ":d:S" optname
   do
     case "${optname}" in
       d)
         INEO_HOME=${OPTARG}
+        ;;
+      S)
+        as_service=true
         ;;
       *)
         invalid_command_param "${OPTARG}" "install"
@@ -204,8 +208,19 @@ function install {
     exit 1
   fi
 
-  # If user is root, we assume a "system" installation
-  if [[ "$(whoami)" == "root" ]]; then
+  # If installation as service requested we need to be root and be on a systemd OS
+  if [[ "${as_service}" == true ]]; then
+    # Check if we are root
+    if [[ "$(whoami)" != "root" ]]; then
+      printf "\n  ${PURPLE}Error -> Installation as a service can only be done by root user${NF}\n\n"
+      exit 1
+    fi
+
+    if [[ $(ps -o comm 1 | tail -n 1 ) != "systemd" ]]; then
+      printf "\n  ${PURPLE}Error -> Installation as a service can only be done on a systemd enabled OS${NF}\n\n"
+      exit 1
+    fi
+
     DEFAULT_HOME=/var/lib/ineo
   fi
 
@@ -266,9 +281,8 @@ function install {
   mv "${TEMP_DIR}" "${INEO_HOME}"
 
   # Check if ineo service can be installed
-  if [[ $(whoami) == "root" ]]; then
-  	if [[ $(ps -o comm 1 | tail -n 1 ) == "systemd" ]]; then
-      cat >/lib/systemd/system/ineo.service <<EOF
+  if [[ "${as_service}" == true ]]; then
+    cat >/lib/systemd/system/ineo.service <<EOF
 [Unit]
 Description=ineo - a Neo4j instance manager
 Documentation=https://github.com/cohesivestack/ineo
@@ -287,9 +301,8 @@ LimitNOFILE=20000
 WantedBy=multi-user.target
 EOF
 
-      # enable service so instances get autostarted if marked as such
-      systemctl enable ineo
-    fi
+    # enable service so instances get autostarted if marked as such
+    systemctl enable ineo
   fi
 
 
@@ -1578,7 +1591,9 @@ HELP_INSTALL="
     -d <directory_name>  Directory name (absolute path) where ineo will be
                          installed
 
-                         Default: ~/.ineo or /var/lib/ineo if root user
+                         Default: ~/.ineo or /var/lib/ineo if using -S
+
+    -S                   Install ineo as a service (only on systemd OSes)
 
 "
 
