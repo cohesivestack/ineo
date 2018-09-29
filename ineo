@@ -369,6 +369,13 @@ function uninstall {
     fi
   fi
 
+  # Check if ineo service has been installed
+  if [[ $(whoami) == "root" ]]; then
+    if [[ $(ps -o comm 1 | tail -n 1 ) == "systemd" ]]; then
+      rm /lib/systemd/system/ineo.service
+    fi
+  fi
+
   # Remove directory
   rm -r "${INEO_HOME}"
 
@@ -1564,13 +1571,14 @@ HELP_INSTALL="
     Install ineo
 
     Don't use this command if you already have ineo installed and working
-    correctly.
+    correctly. If root user installs ineo on a systemd OS, a systemd
+    service will also be install to support autostart on instances.
 
   OPTIONS:
     -d <directory_name>  Directory name (absolute path) where ineo will be
                          installed
 
-                         Default: ~/.ineo
+                         Default: ~/.ineo or /var/lib/ineo if root user
 
 "
 

@@ -148,8 +148,8 @@ set -e
 # Set the variables to create instances
 # ------------------------------------------------------------------------------
 
-export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
-export INEO_HOSTNAME="file:///$(pwd)/fake_ineo_host"
+export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
+export INEO_HOSTNAME="file://$(pwd)/fake_ineo_host"
 export INEO_HOME="$(pwd)/ineo_for_test"
 
 # ==============================================================================
@@ -821,7 +821,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   $command_truncate -s20MB bad_tar_for_test/neo4j-community-${LAST_VERSION}-unix.tar.gz
 
   # Change the NEO4J_HOSTNAME for test to download the bad tar
-  export NEO4J_HOSTNAME="file:///$(pwd)/bad_tar_for_test"
+  export NEO4J_HOSTNAME="file://$(pwd)/bad_tar_for_test"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -861,7 +861,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
   # Restore the correct NEO4J_HOSTNAME for test
-  export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
+  export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
 
   assert_end CreateAnInstanceWithABadTarAndTryAgainWithDOption
 }
