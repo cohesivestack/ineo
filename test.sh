@@ -24,6 +24,85 @@ BOLD='\033[1m'
 NF='\033[0m'
 
 # ==============================================================================
+# HELPER FUNCTIONS
+# ==============================================================================
+
+function get_running_message {
+  local version=$1
+  local instance=$2
+  local pid=$3
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    printf \
+"
+  status '$instance'
+  Neo4j Server is running at pid $pid
+"
+  else
+    printf \
+"
+  status '$instance'
+  Neo4j is running at pid $pid
+"
+  fi
+}
+
+function get_not_running_message {
+  local version=$1
+  local instance=$2
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    printf \
+"
+  status '$instance'
+  Neo4j Server is not running
+"
+  else
+    printf \
+"
+  status '$instance'
+  Neo4j is not running
+"
+  fi
+}
+
+# compare two version strings
+# return values are:
+# -1 operator <
+# 0  operator =
+# 1  operator >
+function compare_version () {
+  if [[ "$1" == "$2" ]]; then
+    printf 0
+    return
+  else
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++)); do
+      ver1[i]=0
+    done
+    for ((i=0; i<${#ver1[@]}; i++)); do
+      if [[ -z ${ver2[i]} ]]; then
+        # fill empty fields in ver2 with zeros
+        ver2[i]=0
+      fi
+      if ((10#${ver1[i]} > 10#${ver2[i]})); then
+        printf 1
+        return
+      fi
+      if ((10#${ver1[i]} < 10#${ver2[i]})); then
+        printf -1
+        return
+      fi
+    done
+  fi
+  printf 0
+}
+
+# ==============================================================================
 # PROVISION
 # ==============================================================================
 
@@ -86,7 +165,7 @@ fi
 if [ ${versions[0]} == 'all' ]; then
   # check current java version and select "all" version appropriately
   java_version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
-  if [[ "${java_version%*.*}" < "1.8" ]]; then
+  if [[ $(compare_version "${java_version%*.*}" "1.8") == -1 ]]; then
     versions=(1.9.9 2.3.6 3.0.3 3.3.1)
   else
     # neo4j 1.9.x is not compatible with java >= 1.8
@@ -140,8 +219,8 @@ set -e
 # Set the variables to create instances
 # ------------------------------------------------------------------------------
 
-export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
-export INEO_HOSTNAME="file:///$(pwd)/fake_ineo_host"
+export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
+export INEO_HOSTNAME="file://$(pwd)/fake_ineo_host"
 export INEO_HOME="$(pwd)/ineo_for_test"
 
 # ==============================================================================
@@ -188,51 +267,6 @@ function setup {
 
   rm -fr ineo_for_test
   assert_raises "test -d ineo_for_test" 1
-}
-
-# ==============================================================================
-# HELPER FUNCTIONS
-# ==============================================================================
-
-function get_running_message {
-  local version=$1
-  local instance=$2
-  local pid=$3
-  local major_version_number=${version%%.*}
-
-  if [ $major_version_number -lt 3 ]; then
-    printf \
-"
-  status '$instance'
-  Neo4j Server is running at pid $pid
-"
-  else
-    printf \
-"
-  status '$instance'
-  Neo4j is running at pid $pid
-"
-  fi
-}
-
-function get_not_running_message {
-  local version=$1
-  local instance=$2
-  local major_version_number=${version%%.*}
-
-  if [ $major_version_number -lt 3 ]; then
-    printf \
-"
-  status '$instance'
-  Neo4j Server is not running
-"
-  else
-    printf \
-"
-  status '$instance'
-  Neo4j is not running
-"
-  fi
 }
 
 # ==============================================================================
@@ -813,7 +847,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   $command_truncate -s20MB bad_tar_for_test/neo4j-community-${LAST_VERSION}-unix.tar.gz
 
   # Change the NEO4J_HOSTNAME for test to download the bad tar
-  export NEO4J_HOSTNAME="file:///$(pwd)/bad_tar_for_test"
+  export NEO4J_HOSTNAME="file://$(pwd)/bad_tar_for_test"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -853,7 +887,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
   # Restore the correct NEO4J_HOSTNAME for test
-  export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
+  export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
 
   assert_end CreateAnInstanceWithABadTarAndTryAgainWithDOption
 }
