@@ -140,8 +140,8 @@ set -e
 # Set the variables to create instances
 # ------------------------------------------------------------------------------
 
-export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
-export INEO_HOSTNAME="file:///$(pwd)/fake_ineo_host"
+export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
+export INEO_HOSTNAME="file://$(pwd)/fake_ineo_host"
 export INEO_HOME="$(pwd)/ineo_for_test"
 
 # ==============================================================================
@@ -684,7 +684,7 @@ CreateAnInstanceCorrectlyWithDifferentVariationsOfParameters() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=6)); do
-		  setup "${FUNCNAME[0]} ${params[i]} (${params[i+1]}-${params[i+2]}-${params[i+3]}-${params[i+4]}-${params[i+5]})"
+    setup "${FUNCNAME[0]} ${params[i]} (${params[i+1]}-${params[i+2]}-${params[i+3]}-${params[i+4]}-${params[i+5]})"
 
     local port=${params[i+1]}
     local ssl_port=${params[i+2]}
@@ -813,7 +813,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   $command_truncate -s20MB bad_tar_for_test/neo4j-community-${LAST_VERSION}-unix.tar.gz
 
   # Change the NEO4J_HOSTNAME for test to download the bad tar
-  export NEO4J_HOSTNAME="file:///$(pwd)/bad_tar_for_test"
+  export NEO4J_HOSTNAME="file://$(pwd)/bad_tar_for_test"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -853,7 +853,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
   # Restore the correct NEO4J_HOSTNAME for test
-  export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
+  export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
 
   assert_end CreateAnInstanceWithABadTarAndTryAgainWithDOption
 }
@@ -1780,6 +1780,360 @@ tests+=('SetPortCorrectly')
 
 
 # ==============================================================================
+# TEST BACKUP
+# ==============================================================================
+
+BackupWithIncorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  local params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "facebook twitter" 'twitter'
+    "-x facebook" 'x'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo backup ${params[i]}" 1
+    assert        "./ineo backup ${params[i]}" \
+"
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
+
+  ${NF}View help about the command ${UNDERLINE}backup${NF} typing:
+    ${CYAN}ineo help backup${NF}
+"
+  done
+
+  assert_end BackupWithIncorrectParameters
+}
+tests+=('BackupWithIncorrectParameters')
+
+
+BackupWithoutTheRequireParameters() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+
+  assert_raises "./ineo backup" 1
+  assert        "./ineo backup" \
+"
+  ${PURPLE}Error -> ${BOLD}backup${PURPLE} requires an instance name
+
+  ${NF}View help about the command ${UNDERLINE}backup${NF} typing:
+    ${CYAN}ineo help backup${NF}
+"
+
+  assert_end BackupWithoutTheRequireParameters
+}
+tests+=('BackupWithoutTheRequireParameters')
+
+
+BackupOnANonExistentInstance() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo backup twitter" 1
+  assert        "./ineo backup twitter" \
+"
+  ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter${PURPLE} or is not properly installed
+
+  ${NF}List installed instances typing:
+    ${CYAN}ineo instances${NF}
+"
+
+  assert_end BackupOnANonExistentInstance
+}
+tests+=('BackupOnANonExistentInstance')
+
+
+BackupCorrectly() {
+  local version
+  local minor_version_number
+  for version in "${versions[@]}"; do
+    for edition in "${editions[@]}"; do
+      setup "${FUNCNAME[0]} ${version}-${edition}"
+
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+      # Test confirming without an instance running
+
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
+
+      minor_version_number=${version%.*}
+      if [[ "${minor_version_number}" < "3.1" ]]; then
+        # only neo4j >=3.x is supported for backup
+        assert_raises "./ineo backup twitter" 1
+
+        assert "./ineo backup twitter" \
+"
+  ${PURPLE}Error -> ${BOLD}backup${PURPLE} requires instance to run Neo4j version 3.1 or higher
+
+  ${NF}View help about the command ${UNDERLINE}backup${NF} typing:
+    ${CYAN}ineo help backup${NF}
+
+"
+        continue
+      fi
+
+
+      # start to create graph.db
+      assert_raises "./ineo start twitter" 0
+      set_instance_pid twitter
+      assert_run_pid $pid
+
+      assert_raises "./ineo backup -p /tmp/ineo$$.dump twitter" 0
+      assert_raises "test -s /tmp/ineo$$.dump" 0
+      rm /tmp/ineo$$.dump
+
+      # check if instance was restarted after backup
+      set_instance_pid twitter
+      assert_run_pid $pid
+
+      assert_raises "./ineo stop twitter" 0
+      assert_not_run_pid $pid
+
+    done
+  done
+  assert_end BackupCorrectly
+}
+tests+=('BackupCorrectly')
+
+
+BackupPath() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create -v ${LAST_VERSION} twitter" 0
+
+  # start to create graph.db
+  assert_raises "./ineo start twitter" 0
+  set_instance_pid twitter
+  assert_run_pid $pid
+
+  # stop
+  assert_raises "./ineo stop twitter" 0
+  assert_not_run_pid $pid
+
+  # check path including filename
+  assert_raises "./ineo backup -p /tmp/ineo$$.dump twitter" 0
+  assert_raises "test -s /tmp/ineo$$.dump" 0
+  rm /tmp/ineo$$.dump
+
+  assert "./ineo status twitter" \
+    "$(get_not_running_message $version twitter)"
+
+  # check path without filename
+  mkdir /tmp/ineo$$
+  assert_raises "./ineo backup -p /tmp/ineo$$/ twitter" 0
+  assert_raises "test -s /tmp/ineo$$/ineo_twitter_*.dump" 0
+  rm -rf /tmp/ineo$$/
+
+  assert_end BackupPath
+}
+tests+=('BackupPath')
+
+
+
+# ==============================================================================
+# TEST RESTORE
+# ==============================================================================
+
+RestoreWithIncorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  local params=(
+    "-x" 'x'
+    "-x -y" 'x'
+    "-x twitter" 'x'
+    "-x facebook" 'x'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo restore ${params[i]}" 1
+    assert        "./ineo restore ${params[i]}" \
+"
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
+
+  ${NF}View help about the command ${UNDERLINE}restore${NF} typing:
+    ${CYAN}ineo help restore${NF}
+"
+  done
+
+  assert_end RestoreWithIncorrectParameters
+}
+tests+=('RestoreWithIncorrectParameters')
+
+
+RestoreWithoutTheRequireParameters() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+
+  assert_raises "./ineo restore nosuchfile" 1
+  assert        "./ineo restore nosuchfile" \
+"
+  ${PURPLE}Error -> No dump file ${BOLD}nosuchfile${PURPLE} found${NF}
+"
+
+  assert_raises "./ineo restore ineo" 1
+  assert        "./ineo restore ineo" \
+"
+  ${PURPLE}Error -> ${BOLD}restore${PURPLE} requires an instance name
+
+  ${NF}View help about the command ${UNDERLINE}restore${NF} typing:
+    ${CYAN}ineo help restore${NF}
+"
+
+  assert_end RestoreWithoutTheRequireParameters
+}
+tests+=('RestoreWithoutTheRequireParameters')
+
+
+RestoreOnANonExistentInstance() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo restore ineo twitter" 1
+  assert        "./ineo restore ineo twitter" \
+"
+  ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter${PURPLE} or is not properly installed
+
+  ${NF}List installed instances typing:
+    ${CYAN}ineo instances${NF}
+"
+
+  assert_end RestoreOnANonExistentInstance
+}
+tests+=('RestoreOnANonExistentInstance')
+
+
+RestoreCorrectly() {
+  local version
+  local minor_version_number
+  for version in "${versions[@]}"; do
+    for edition in "${editions[@]}"; do
+      setup "${FUNCNAME[0]} ${version}-${edition}"
+
+      # Make an installation
+      assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+      # Test confirming without an instance running
+
+      assert_raises "./ineo create -e $edition -v $version twitter" 0
+
+      minor_version_number=${version%.*}
+      if [[ "${minor_version_number}" < "3.1" ]]; then
+        # only neo4j >=3.x is supported for restore
+        assert_raises "./ineo restore ineo twitter" 1
+
+        assert "./ineo restore ineo twitter" \
+"
+  ${PURPLE}Error -> ${BOLD}restore${PURPLE} requires instance to run Neo4j version 3.1 or higher
+
+  ${NF}View help about the command ${UNDERLINE}restore${NF} typing:
+    ${CYAN}ineo help restore${NF}
+
+"
+        continue
+      fi
+
+
+      # create dump file, if not exists yet
+      if [[ ! -e /tmp/ineo$$.dump ]]; then
+        # start to create graph.db
+        assert_raises "./ineo start twitter" 0
+        set_instance_pid twitter
+        assert_run_pid $pid
+
+        assert_raises "./ineo backup -p /tmp/ineo$$.dump twitter" 0
+        assert_raises "test -s /tmp/ineo$$.dump" 0
+      fi
+
+      assert_raises "./ineo restore -f /tmp/ineo$$.dump twitter" 0
+
+
+      # check if instance can be started after restore
+      assert_raises "./ineo start twitter" 0
+      set_instance_pid twitter
+      assert_run_pid $pid
+
+      assert_raises "./ineo stop twitter" 0
+      assert_not_run_pid $pid
+  
+    done
+  done
+
+  rm /tmp/ineo$$.dump
+
+  assert_end RestoreCorrectly
+}
+tests+=('RestoreCorrectly')
+
+
+RestoreForce() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create -v ${LAST_VERSION} twitter" 0
+
+  # start to create graph.db
+  assert_raises "./ineo start twitter" 0
+  set_instance_pid twitter
+  assert_run_pid $pid
+
+  assert_raises "./ineo backup -p /tmp/ineo$$.dump twitter" 0
+  assert_raises "test -s /tmp/ineo$$.dump" 0
+
+  # use force to prevent interaction
+  assert_raises "./ineo restore -f /tmp/ineo$$.dump twitter" 0
+
+  assert_raises "echo -ne 'y\n' | ./ineo restore /tmp/ineo$$.dump twitter" 0
+
+#  assert "echo -ne 'y\n' | ./ineo restore /tmp/ineo$$.dump twitter" \
+#"
+#  ${YELLOW}Warning -> ${RED}restore${YELLOW} on the instance ${BOLD}twitter${YELLOW} will overwrite all existing data for this instance${NF}
+#
+#
+#  ${GREEN}The data for the instance ${BOLD}twitter${GREEN} was successfully restored${NF}
+#"
+
+
+  # check if instance can be started after restore
+  assert_raises "./ineo start twitter" 0
+  set_instance_pid twitter
+  assert_run_pid $pid
+
+  assert_raises "./ineo stop twitter" 0
+  assert_not_run_pid $pid
+  
+  rm /tmp/ineo$$.dump
+
+
+  assert_end RestoreForce
+}
+tests+=('RestoreForce')
+
+
+
+# ==============================================================================
 # TEST CLEAR-DATA
 # ==============================================================================
 
@@ -2072,3 +2426,5 @@ if [[ -z "$test_name" ]]; then
 else
   "$test_name"
 fi
+
+# vim: syntax=sh ts=2 sw=2 et sr softtabstop=2
