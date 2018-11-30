@@ -65,6 +65,20 @@ BOLD='\033[1m'
 NF='\033[0m'
 
 # ==============================================================================
+# BASH AUTO COMPLETION
+# ==============================================================================
+
+function ineo_autocompletion { 
+    if [ "${#COMP_WORDS[@]}" -eq "2" ]; then
+        COMPREPLY=($(compgen -W "create set-port versions instances start stop restart status shell console delete-db 
+        destroy install update uninstall help" "${COMP_WORDS[1]}"))
+    else
+        COMPREPLY=$(compgen -W "$(ineo instances|egrep '> instance'|sed "s/> instance '\(.*\)'/ \1/g"|sed "s/\s*//g")" 
+        "${COMP_WORDS[-1]}")
+    fi
+}
+
+# ==============================================================================
 # SET INSTANCES FUNCTION
 # ==============================================================================
 
@@ -251,6 +265,11 @@ function install {
     # Add the line in .bashrc to export the variable
     echo "${line_for_bashrc}" >> ~/.bashrc
   fi
+  
+  # Export the auto completion setting line to activate autocompletion
+  if ! grep -Fq "complete -F ineo_autocompletion ineo" ~/.bashrc; then
+    echo "complete -F ineo_autocompletion ineo" >> ~/.bashrc
+  fi  
 
   # Move the TEMP_DIR to the target directory for ineo
   mv "${TEMP_DIR}" "${INEO_HOME}"
