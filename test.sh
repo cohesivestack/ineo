@@ -3,7 +3,9 @@
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
 DEFAULT_EDITION='all'
-LAST_VERSION='3.3.3'
+DEFAULT_AUTO_DELAY=3
+LAST_VERSION='3.4.5'
+SED_CMD="sed -i "
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -26,6 +28,12 @@ NF='\033[0m'
 # ==============================================================================
 # PROVISION
 # ==============================================================================
+
+# make OS specific changed
+if [[ "$( uname )" == "Darwin" ]]; then
+  # sed command is just incompatible with -i option
+	SED_CMD="sed -i ''"
+fi
 
 versions=()
 editions=()
@@ -87,10 +95,10 @@ if [ ${versions[0]} == 'all' ]; then
   # check current java version and select "all" version appropriately
   java_version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
   if [[ "${java_version%*.*}" < "1.8" ]]; then
-    versions=(1.9.9 2.3.6 3.0.3 3.3.3)
+    versions=(1.9.9 2.3.6 3.0.3 3.4.5)
   else
     # neo4j 1.9.x is not compatible with java >= 1.8
-    versions=(2.3.6 3.0.3 3.3.3)
+    versions=(2.3.6 3.0.3 3.4.5)
   fi
 fi
 
@@ -140,8 +148,8 @@ set -e
 # Set the variables to create instances
 # ------------------------------------------------------------------------------
 
-export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
-export INEO_HOSTNAME="file:///$(pwd)/fake_ineo_host"
+export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
+export INEO_HOSTNAME="file://$(pwd)/fake_ineo_host"
 export INEO_HOME="$(pwd)/ineo_for_test"
 
 # ==============================================================================
@@ -634,7 +642,7 @@ CreateWithIncorrectEdition() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=1)); do
-    setup "${FUNCNAME[0]}"
+    setup "${FUNCNAME[0]} ${params[i]}"
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -813,7 +821,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   $command_truncate -s20MB bad_tar_for_test/neo4j-community-${LAST_VERSION}-unix.tar.gz
 
   # Change the NEO4J_HOSTNAME for test to download the bad tar
-  export NEO4J_HOSTNAME="file:///$(pwd)/bad_tar_for_test"
+  export NEO4J_HOSTNAME="file://$(pwd)/bad_tar_for_test"
 
   # Make an installation
   assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -853,7 +861,7 @@ CreateAnInstanceWithABadTarAndTryAgainWithDOption() {
   assert_raises "test -f $(pwd)/ineo_for_test/instances/twitter/bin/neo4j" 0
 
   # Restore the correct NEO4J_HOSTNAME for test
-  export NEO4J_HOSTNAME="file:///$(pwd)/fake_neo4j_host"
+  export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
 
   assert_end CreateAnInstanceWithABadTarAndTryAgainWithDOption
 }
@@ -892,6 +900,7 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
   assert_end CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption
 }
 tests+=('CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption')
+
 
 # ==============================================================================
 # TEST INSTANCE ACTIONS (START, STATUS, RESTART, STOP)
@@ -1120,6 +1129,183 @@ $(get_not_running_message $version twitter $pid_twitter)"
   assert_end ExecuteActionsOnVariousInstancesCorrectly
 }
 tests+=('ExecuteActionsOnVariousInstancesCorrectly')
+
+
+# ==============================================================================
+# TEST AUTOSTART
+# ==============================================================================
+
+AutostartWithoutAnyInstance() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  local action
+  for action in "${actions[@]}"; do
+    assert_raises "./ineo autostart" 1
+    assert        "./ineo autostart" \
+"
+  ${PURPLE}Error -> No instances created yet
+
+  ${NF}Try create an instance with the command:
+    ${CYAN}ineo create [your_instance_name]${NF}"
+  done
+
+  assert_end AutostartWithoutAnyInstance
+}
+tests+=('AutostartWithoutAnyInstance')
+
+
+AutostartSomeInstances() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create -p 7474 twitter" 0
+  assert_raises "./ineo create -p 8484 facebook" 0
+  assert_raises "./ineo create -p 9494 apple" 0
+
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/apple/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  assert_raises "./ineo autostart" 0
+
+  set_instance_pid twitter
+  local pid_twitter=$pid
+  assert_run_pid $pid_twitter
+
+  # should not have started at all, so no PID file yet
+  assert_raises \
+    "test -f $INEO_HOME/instances/facebook/run/neo4j.pid" 1
+
+  set_instance_pid apple
+  local pid_apple=$pid
+  assert_run_pid $pid_apple
+
+  assert_raises "./ineo stop -q" 0
+
+  assert_end AutostartSomeInstances
+}
+tests+=('AutostartSomeInstances')
+
+
+AutostartWithDelay() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create -p 7474 twitter" 0
+  assert_raises "./ineo create -p 8484 facebook" 0
+
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  local time=$(date +"%s")
+  assert_raises "./ineo autostart" 0
+  time=$(($(date +"%s")-${time}))
+
+  assert_raises "[ ${time} -ge ${DEFAULT_AUTO_DELAY} ]" 0
+
+  set_instance_pid twitter
+  local pid_twitter=$pid
+  assert_run_pid $pid_twitter
+
+  set_instance_pid facebook
+  local pid_facebook=$pid
+  assert_run_pid $pid_facebook
+
+  assert_raises "./ineo stop -q" 0
+
+
+  ${SED_CMD} -E "/^.*ineo_start_delay=.*$/ s/.*/ineo_start_delay=0/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_delay=.*$/ s/.*/ineo_start_delay=0/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  time=$(date +"%s")
+  assert_raises "./ineo autostart" 0
+  time=$(($(date +"%s")-${time}))
+
+  assert_raises "[ ${time} -lt ${DEFAULT_AUTO_DELAY} ]" 0
+
+  set_instance_pid twitter
+  pid_twitter=$pid
+  assert_run_pid $pid_twitter
+
+  set_instance_pid facebook
+  pid_facebook=$pid
+  assert_run_pid $pid_facebook
+
+  assert_raises "./ineo stop -q" 0
+
+  assert_end AutostartWithDelay
+}
+tests+=('AutostartWithDelay')
+
+
+AutostartWithPriority() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  # testing starting order is not really easy to do, because the autostart
+  # is not running in a separate thread/process and cannot be "watched".
+  # so the "trick" is to use the same port and see which neo4j is able
+  # to start. the first one will win.
+  assert_raises "./ineo create -p 7474 twitter" 0
+  assert_raises "./ineo create -p 7474 facebook" 0
+
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=10/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=100/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  assert_raises "./ineo autostart" 0
+
+  set_instance_pid twitter
+  local pid_twitter=$pid
+  assert_run_pid $pid_twitter
+
+  set_instance_pid facebook
+  pid_facebook=$pid
+  assert_not_run_pid $pid_facebook
+
+  assert_raises "./ineo stop -q" 0
+
+
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=100/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  assert_raises "./ineo autostart" 0
+
+  set_instance_pid facebook
+  pid_facebook=$pid
+  assert_run_pid $pid_facebook
+
+  set_instance_pid twitter
+  pid_twitter=$pid
+  assert_not_run_pid $pid_twitter
+
+  assert_raises "./ineo stop -q" 0
+
+  assert_end AutostartWithPriority
+}
+tests+=('AutostartWithPriority')
 
 
 # ==============================================================================

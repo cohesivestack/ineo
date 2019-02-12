@@ -111,7 +111,11 @@ assert() {
     result="$(sed -e :a -e '$!N;s/\n/\\n/;ta' <<< "$result")"
     [[ -z "$result" ]] && result="nothing" || result="\"$result\""
     [[ -z "$2" ]] && expected="nothing" || expected="\"$2\""
-    _assert_fail "expected $expected${_indent}got $result" "$1" "$3"
+
+    set +e
+    diff=$(diff -y <(echo -e "${expected}") <(echo -e "${result}"))
+    set -e
+    _assert_fail "expected ${expected}${_indent}got ${result}${_indent}diff \n${diff}" "$1" "$3"
 }
 
 assert_raises() {
@@ -134,7 +138,7 @@ _assert_fail() {
     report="test #$tests_ran \"$2${3:+ <<< $3}\" failed:${_indent}$1"
     if [[ -n "$STOP" ]]; then
         [[ -n "$DEBUG" ]] && echo
-        echo "$report"
+        echo -e "$report"
         exit 1
     fi
     tests_errors[$tests_failed]="$report"
