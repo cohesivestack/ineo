@@ -614,11 +614,11 @@ function create {
   fi
 
   # Create tmp dir to extract
-  mkdir -p "${INSTANCE_TEMP_DIR}"
+  mkdir -p "${INEO_HOME}/instances/.${instance_name}"
   # if is not extracted then the tar maybe is not good, so a message suggesting
   # to use -d option is showed
   if ! tar --strip 1 -xzf "${INEO_HOME}/neo4j/${tar_name}" \
-    -C "${INSTANCE_TEMP_DIR}" &> /dev/null; then
+    -C "${INEO_HOME}/instances/.${instance_name}" &> /dev/null; then
     printf "\n  ${PURPLE}Error -> The tar file ${BOLD}${tar_name}${PURPLE} can't be extracted\n"
     printf "\n  ${NF}Try run the command ${UNDERLINE}create${NF} with the -d option to download the tar file again\n\n"
     exit 1
@@ -629,7 +629,7 @@ function create {
   fi
 
   # Create a hidden file with meta information to this installation (e.g. version, edition, ...)
-  cat >"${TEMP_DIR}/${version}/neo4j-${edition}-${version}/.ineo" <<EOF
+  cat >"${INEO_HOME}/instances/.${instance_name}/.ineo" <<EOF
 # installation
 neo4j_version=${version}
 neo4j_edition=${edition}
@@ -641,7 +641,7 @@ neo4j_edition=${edition}
 EOF
 
   # Finnaly move the instance for installation
-  mv "${INSTANCE_TEMP_DIR}" "${INEO_HOME}/instances/${instance_name}"
+  mv "${INEO_HOME}/instances/.${instance_name}" "${INEO_HOME}/instances/${instance_name}"
 
   # If https or bolt port is not configured, then set them incrementally
   https_port=${https_port:-$((${port} + 1))}
@@ -674,7 +674,7 @@ function allow_external_connections {
     if [[ "${allow_external_connections}" == true ]]; then
       ${SED_CMD} -E "/org.neo4j.server.webserver.address=/ s/^#//g" \
         ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
-    fi
+	  fi
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
       address=localhost

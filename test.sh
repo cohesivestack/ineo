@@ -1071,8 +1071,14 @@ ExecuteActionsOnVariousInstancesCorrectly() {
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
 
       # Test confirming
-      assert_raises "./ineo create -p7474 -e $edition -v $version twitter" 0
-      assert_raises "./ineo create -p8484 -e $edition -v $version facebook" 0
+      if [[ ${version%%.*} < 3 ]]; then
+        assert_raises "./ineo create -p7474 -e $edition -v $version twitter" 0
+        assert_raises "./ineo create -p8484 -e $edition -v $version facebook" 0
+      else
+        assert_raises "./ineo create -p7474 -b7575 -e $edition -v $version twitter" 0
+        assert_raises "./ineo create -p8484 -b8585 -e $edition -v $version facebook" 0
+      fi
+
 
       # start
       assert_raises "echo -ne 'y\n' | ./ineo start" 0
