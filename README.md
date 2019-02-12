@@ -1,6 +1,8 @@
 # ineo
 
 [![Join the chat at https://gitter.im/cohesivestack/ineo](https://badges.gitter.im/cohesivestack/ineo.svg)](https://gitter.im/cohesivestack/ineo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+Project information: [![License](https://img.shields.io/github/license/cohesivestack/ineo.svg?style=flat)](https://img.shields.io/github/license/cohesivestack/ineo.svg?style=flat)
+[![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/cohesivestack/ineo.svg?style=flat)]((https://img.shields.io/github/languages/code-size/cohesivestack/ineo.svg?style=flat))
 
 A simple but useful Neo4j instance manager.
 
@@ -268,7 +270,7 @@ $ ineo help
     create          Create a new instance with a specific <name>
     set-port        Change the port of a specific instance <name>
     versions        Show the Neo4j versions available for installation
-    instances       Show the information about installed instances
+    list            List information about installed instances
 
     start           Start Neo4j instances
     stop            Stop Neo4j instances
@@ -276,6 +278,9 @@ $ ineo help
     status          Show instances status
     shell           Start the shell for a Neo4j instance
     console         Start a Neo4j instance in mode console
+
+    backup          Backup a specific database <name>
+    restore         Restore a specific database <name>
 
     set-config      Change settings in configuration file
     get-config      Read settings from configuration file
@@ -337,6 +342,6 @@ Code contributions are welcome. The rules are:
 
 ## License
 
-Copyright © 2015-2018 Carlos Forero
+Copyright © 2015-2019 Carlos Forero
 
 Ineo is released under the MIT License.

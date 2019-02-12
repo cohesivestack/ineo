@@ -1,6 +1,6 @@
 #!/bin/bash
-# ineo 1.1.0 - Neo4j Instances Manager
-# Copyright (C) 2015-2018 Carlos Forero
+# ineo 2.0.0 - Neo4j Instances Manager
+# Copyright (C) 2015-2019 Carlos Forero
 #
 # http://github.com/carlosforero/ineo
 #
@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-VERSION=1.1.0
+VERSION=2.0.0
 
 DEFAULT_HOME="${HOME}/.ineo"
 
