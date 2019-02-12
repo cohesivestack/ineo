@@ -320,7 +320,7 @@ OPTIONS:
 
 ## Tested on
 
-* OS X
+* macOS X
 * Ubuntu
 
 ## Roadmap
