@@ -344,4 +344,4 @@ Code contributions are welcome. The rules are:
 
 Copyright © 2015-2019 Carlos Forero
 
-Ineo is released under the MIT License.
+Ineo is released under the [MIT License](LICENSE).
