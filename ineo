@@ -48,6 +48,7 @@ TEMP_DIR="/tmp/$$.ineo"
 INSTANCE_TEMP_DIR="${INEO_HOME}/instances/.tmp"
 
 SED_CMD="sed -i "
+OWNER_CMD="stat -c %U"
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -673,7 +674,7 @@ function allow_external_connections {
     if [[ "${allow_external_connections}" == true ]]; then
       ${SED_CMD} -E "/org.neo4j.server.webserver.address=/ s/^#//g" \
         ${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties
-	  fi
+    fi
   else
     if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
       address=localhost
@@ -1435,6 +1436,202 @@ function set-config {
 
 }
 
+# ==============================================================================
+# BACKUP
+# ==============================================================================
+
+# Command
+function backup {
+  local path="."
+
+  shift
+  while getopts ":p:" optname
+  do
+    case "${optname}" in
+      p)
+        # remove trailing /
+        path=${OPTARG%/}
+        ;;
+      *)
+        invalid_command_param "${OPTARG}" "backup"
+        exit 1
+        ;;
+    esac
+  done
+
+  local instance_name=${@:$OPTIND:1}
+
+  shift
+  local arg=${@:$OPTIND:1}
+  if [[ -n "${arg}" ]]; then
+    invalid_command_param "${arg}" "backup"
+    exit 1
+  fi
+
+  # backup requires an instance name
+  if [[ -z "${instance_name}" ]]; then
+    printf "\n  ${PURPLE}Error -> ${BOLD}backup${PURPLE} requires an instance name\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}backup${NF} typing:"
+    printf "\n    ${CYAN}ineo help backup${NF}\n\n"
+    exit 1
+  fi
+
+  # backup requires Neo4j >=3.1
+  if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
+    printf "\n  ${PURPLE}Error -> ${BOLD}backup${PURPLE} requires instance to run Neo4j version 3.1 or higher\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}backup${NF} typing:"
+    printf "\n    ${CYAN}ineo help backup${NF}\n\n"
+    exit 1
+  fi
+
+  # Check if the directory exists
+  if [[ ! -d "${INEO_HOME}/instances/${instance_name}" ]]; then
+    printf "\n  ${PURPLE}Error -> There is not an instance with the name ${BOLD}${instance_name}${PURPLE} or is not properly installed\n"
+    printf "\n  ${NF}List installed instances typing:"
+    printf "\n    ${CYAN}ineo instances${NF}\n\n"
+    exit 1
+  fi
+
+  # Check if save path exists
+  if [[ -d "${path}" ]]; then
+    # add filename to path
+    path="${path}/ineo_${instance_name}_$(date +"%Y-%m-%d_%H-%M-%S").dump"
+  else
+    # given path might include filename already, check if dirname is a valid path
+    if [[ ! -d "$(dirname "${path}")" ]]; then
+      printf "\n  ${PURPLE}Error -> The given path ${BOLD}${path}${PURPLE} doesn't exists or is not writable${NF}\n\n"
+      exit 1
+    fi
+  fi
+
+  (is_instance_running ${instance_name})
+  local is_running=$?
+  # Check if the instance is running
+  if [[ "${is_running}" -eq 0 ]]; then
+
+    # Stop the instance
+    ${INEO_HOME}/instances/${instance_name}/bin/neo4j stop
+  fi
+
+  "${INEO_HOME}/instances/${instance_name}/bin/neo4j-admin" dump --database="graph.db" --to="${path}"
+
+  local success=$?
+  if [[ "${success}" -ne 0 ]]; then
+    printf "\n  ${PURPLE}Error -> The backup failed with return code ${BOLD}${success}${PURPLE}${NF}\n\n"
+    exit 1
+  fi
+
+  if [[ "${is_running}" -eq 0 ]]; then
+
+    # Restart the instance
+    ${INEO_HOME}/instances/${instance_name}/bin/neo4j start
+  fi
+
+  printf "\n  ${GREEN}The data of the instance ${BOLD}${instance_name}${GREEN} was successfully"
+  printf "\n  backuped to ${BOLD}${path}${GREEN}${NF}\n\n"
+  exit 0
+
+}
+
+# ==============================================================================
+# RESTORE
+# ==============================================================================
+
+# Command
+function restore {
+  local force=false
+
+  shift
+  while getopts ":f" optname
+  do
+    case "${optname}" in
+      f)
+        force=true
+        ;;
+      *)
+        invalid_command_param "${OPTARG}" "restore"
+        exit 1
+        ;;
+    esac
+  done
+
+  local file=${@:$OPTIND:1}
+  # Check if the dump file exists
+  if [[ ! -f "${file}" ]]; then
+    printf "\n  ${PURPLE}Error -> No dump file ${BOLD}${file}${PURPLE} found${NF}\n\n"
+    exit 1
+  fi
+
+  shift
+  local instance_name=${@:$OPTIND:1}
+  # restore requires an instance name
+  if [[ -z "${instance_name}" ]]; then
+    printf "\n  ${PURPLE}Error -> ${BOLD}restore${PURPLE} requires an instance name\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}restore${NF} typing:"
+    printf "\n    ${CYAN}ineo help restore${NF}\n\n"
+    exit 1
+  fi
+
+  # Check if the directory exists
+  if [[ ! -d "${INEO_HOME}/instances/${instance_name}" ]]; then
+    printf "\n  ${PURPLE}Error -> There is not an instance with the name ${BOLD}${instance_name}${PURPLE} or is not properly installed\n"
+    printf "\n  ${NF}List installed instances typing:"
+    printf "\n    ${CYAN}ineo instances${NF}\n\n"
+    exit 1
+  fi
+
+  # restore requires Neo4j >=3.1
+  if [[ $(get_minor_version "${instance_name}") < "3.1" ]]; then
+    printf "\n  ${PURPLE}Error -> ${BOLD}restore${PURPLE} requires instance to run Neo4j version 3.1 or higher\n"
+    printf "\n  ${NF}View help about the command ${UNDERLINE}restore${NF} typing:"
+    printf "\n    ${CYAN}ineo help restore${NF}\n\n"
+    exit 1
+  fi
+
+  shift
+  local arg=${@:$OPTIND:1}
+  if [[ -n "${arg}" ]]; then
+    invalid_command_param "${arg}" "restore"
+    exit 1
+  fi
+
+  # Confirm restore
+  if [[ "${force}" == false ]]; then
+    printf "\n  ${YELLOW}Warning -> ${RED}restore${YELLOW} on the instance ${BOLD}${instance_name}${YELLOW} will overwrite all existing data for this instance${NF}\n\n"
+    read -p  "  Are you sure you want to continue overwritting the data for '${instance_name}'? (y/n) " -r
+    if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+      exit 1
+    fi
+  fi
+
+  (is_instance_running ${instance_name})
+  local is_running=$?
+  # Check if the instance is running
+  if [[ "${is_running}" -eq 0 ]]; then
+
+    # Stop the instance
+    ${INEO_HOME}/instances/${instance_name}/bin/neo4j stop
+  fi
+
+  "${INEO_HOME}/instances/${instance_name}/bin/neo4j-admin" load --from="${file}" --database="graph.db" --force
+
+  local success=$?
+  if [[ "${success}" -ne 0 ]]; then
+    printf "\n  ${PURPLE}Error -> The restore failed with return code ${BOLD}${success}${PURPLE}${NF}\n\n"
+    exit 1
+  fi
+
+  if [[ "${is_running}" -eq 0 ]]; then
+
+    # Restart the instance
+    ${INEO_HOME}/instances/${instance_name}/bin/neo4j start
+  fi
+
+  printf "\n  ${GREEN}The data of the instance ${BOLD}${instance_name}${GREEN} was successfully"
+  printf "\n  restored from ${BOLD}${file}${GREEN}${NF}\n\n"
+  exit 0
+
+}
 
 # ==============================================================================
 # DELETE-DB
@@ -1616,6 +1813,9 @@ HELP="
     status          Show instances status
     shell           Start the shell for a Neo4j instance
     console         Start a Neo4j instance in mode console
+
+    backup          Backup a specific database <name>
+    restore         Restore a specific database <name>
 
     set-config      Change settings in configuration file
     get-config      Read settings from configuration file
@@ -1862,6 +2062,45 @@ HELP_CONSOLE="
 
 "
 
+HELP_BACKUP="
+  USAGE:
+    backup <options> <instance_name>
+
+  DESCRIPTION:
+    Create an offline backup of a specific database (requires Neo4j >=3.1)
+
+    The backup will not include ineo nor neo4j config settings. The backup will
+    stop the instance in order to make the backup. If the instance was running
+    before the backup, it will be restarted afterwards.
+
+  ARGUMENTS:
+    <instance_name>  Instance name of the data to backup
+
+  OPTIONS:
+    -p    Destination path of the backup
+
+          Default: ./
+
+"
+
+HELP_RESTORE="
+  USAGE:
+    restore [options] <backup_file> <instance_name>
+
+  DESCRIPTION:
+    Restore a specific instance using a Neo4j dump file (requires Neo4j >=3.1)
+
+    Any existing data will be overwritten by this command.
+
+  ARGUMENTS:
+    <backup_file>    Path to Neo4j dump file
+    <instance_name>  Instance name of the data to restore
+
+  OPTIONS:
+    -f    Overwrite the data without confirmation
+
+"
+
 HELP_DELETE_DB="
   USAGE:
     delete-db [options] <instance_name>
@@ -2012,11 +2251,18 @@ case "${COMMAND}" in
   console|start|stop|restart|status|info)
     action $@
     ;;
+  backup)
+    backup $@
+    ;;
+  restore)
+    restore $@
+    ;;
   get-config)
     get-config $@
     ;;
   set-config)
     set-config $@
+    ;;
   autostart)
     autostart $@
     ;;
