@@ -3,7 +3,9 @@
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
 DEFAULT_EDITION='all'
-LAST_VERSION='3.3.1'
+DEFAULT_AUTO_DELAY=3
+LAST_VERSION='3.4.5'
+SED_CMD="sed -i "
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -24,8 +26,93 @@ BOLD='\033[1m'
 NF='\033[0m'
 
 # ==============================================================================
+# HELPER FUNCTIONS
+# ==============================================================================
+
+function get_running_message {
+  local version=$1
+  local instance=$2
+  local pid=$3
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    printf \
+"
+  status '$instance'
+  Neo4j Server is running at pid $pid
+"
+  else
+    printf \
+"
+  status '$instance'
+  Neo4j is running at pid $pid
+"
+  fi
+}
+
+function get_not_running_message {
+  local version=$1
+  local instance=$2
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    printf \
+"
+  status '$instance'
+  Neo4j Server is not running
+"
+  else
+    printf \
+"
+  status '$instance'
+  Neo4j is not running
+"
+  fi
+}
+
+# compare two version strings
+# return values are:
+# -1 operator <
+# 0  operator =
+# 1  operator >
+function compare_version () {
+  if [[ "$1" == "$2" ]]; then
+    printf 0
+    return
+  else
+    local IFS=.
+    local i ver1=($1) ver2=($2)
+    # fill empty fields in ver1 with zeros
+    for ((i=${#ver1[@]}; i<${#ver2[@]}; i++)); do
+      ver1[i]=0
+    done
+    for ((i=0; i<${#ver1[@]}; i++)); do
+      if [[ -z ${ver2[i]} ]]; then
+        # fill empty fields in ver2 with zeros
+        ver2[i]=0
+      fi
+      if ((10#${ver1[i]} > 10#${ver2[i]})); then
+        printf 1
+        return
+      fi
+      if ((10#${ver1[i]} < 10#${ver2[i]})); then
+        printf -1
+        return
+      fi
+    done
+  fi
+  printf 0
+}
+
+# ==============================================================================
 # PROVISION
 # ==============================================================================
+
+# make OS specific changed
+if [[ "$( uname )" == "Darwin" ]]; then
+  # sed command is just incompatible with -i option
+	SED_CMD="sed -i ''"
+fi
 
 versions=()
 editions=()
@@ -86,11 +173,11 @@ fi
 if [ ${versions[0]} == 'all' ]; then
   # check current java version and select "all" version appropriately
   java_version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
-  if [[ "${java_version%*.*}" < "1.8" ]]; then
-    versions=(1.9.9 2.3.6 3.0.3 3.3.1)
+  if [[ $(compare_version "${java_version%*.*}" "1.8") == -1 ]]; then
+    versions=(1.9.9 2.3.6 3.0.3 3.4.5)
   else
     # neo4j 1.9.x is not compatible with java >= 1.8
-    versions=(2.3.6 3.0.3 3.3.1)
+    versions=(2.3.6 3.0.3 3.4.5)
   fi
 fi
 
@@ -165,7 +252,7 @@ function assert_run_pid {
   local pid=$1
   # we need to wait some seconds, because on fast computers the pid will exists 
   # even though neo4j terminates due to a configuration error
-  sleep 3 
+  sleep 3
   assert_raises "test $(ps -p $pid -o pid=)" 0
 }
 
@@ -188,51 +275,6 @@ function setup {
 
   rm -fr ineo_for_test
   assert_raises "test -d ineo_for_test" 1
-}
-
-# ==============================================================================
-# HELPER FUNCTIONS
-# ==============================================================================
-
-function get_running_message {
-  local version=$1
-  local instance=$2
-  local pid=$3
-  local major_version_number=${version%%.*}
-
-  if [ $major_version_number -lt 3 ]; then
-    printf \
-"
-  status '$instance'
-  Neo4j Server is running at pid $pid
-"
-  else
-    printf \
-"
-  status '$instance'
-  Neo4j is running at pid $pid
-"
-  fi
-}
-
-function get_not_running_message {
-  local version=$1
-  local instance=$2
-  local major_version_number=${version%%.*}
-
-  if [ $major_version_number -lt 3 ]; then
-    printf \
-"
-  status '$instance'
-  Neo4j Server is not running
-"
-  else
-    printf \
-"
-  status '$instance'
-  Neo4j is not running
-"
-  fi
 }
 
 # ==============================================================================
@@ -634,7 +676,7 @@ CreateWithIncorrectEdition() {
 
   local i
   for ((i=0; i<${#params[*]}; i+=1)); do
-    setup "${FUNCNAME[0]}"
+    setup "${FUNCNAME[0]} ${params[i]}"
 
     # Make an installation
     assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -877,10 +919,6 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
   ${NF}Maybe the instance already was created or try run the command ${UNDERLINE}install${NF} with the -f option to force the installation
 "
 
-  # Ensure the bad tar version of neo4j was downloaded
-  assert_raises \
-    "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$LAST_VERSION-unix.tar.gz" 0
-
   # Ensure the instance directory is empty yet
   assert_raises "test $(ls -A ineo_for_test/instances/twitter)" 1
 
@@ -896,6 +934,7 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
   assert_end CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption
 }
 tests+=('CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption')
+
 
 # ==============================================================================
 # TEST INSTANCE ACTIONS (START, STATUS, RESTART, STOP)
@@ -1127,10 +1166,187 @@ tests+=('ExecuteActionsOnVariousInstancesCorrectly')
 
 
 # ==============================================================================
+# TEST AUTOSTART
+# ==============================================================================
+
+AutostartWithoutAnyInstance() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  local action
+  for action in "${actions[@]}"; do
+    assert_raises "./ineo autostart" 1
+    assert        "./ineo autostart" \
+"
+  ${PURPLE}Error -> No instances created yet
+
+  ${NF}Try create an instance with the command:
+    ${CYAN}ineo create [your_instance_name]${NF}"
+  done
+
+  assert_end AutostartWithoutAnyInstance
+}
+tests+=('AutostartWithoutAnyInstance')
+
+
+AutostartSomeInstances() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create -p 7474 twitter" 0
+  assert_raises "./ineo create -p 8484 facebook" 0
+  assert_raises "./ineo create -p 9494 apple" 0
+
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/apple/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  assert_raises "./ineo autostart" 0
+
+  set_instance_pid twitter
+  local pid_twitter=$pid
+  assert_run_pid $pid_twitter
+
+  # should not have started at all, so no PID file yet
+  assert_raises \
+    "test -f $INEO_HOME/instances/facebook/run/neo4j.pid" 1
+
+  set_instance_pid apple
+  local pid_apple=$pid
+  assert_run_pid $pid_apple
+
+  assert_raises "./ineo stop -q" 0
+
+  assert_end AutostartSomeInstances
+}
+tests+=('AutostartSomeInstances')
+
+
+AutostartWithDelay() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create -p 7474 twitter" 0
+  assert_raises "./ineo create -p 8484 facebook" 0
+
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  local time=$(date +"%s")
+  assert_raises "./ineo autostart" 0
+  time=$(($(date +"%s")-${time}))
+
+  assert_raises "[ ${time} -ge ${DEFAULT_AUTO_DELAY} ]" 0
+
+  set_instance_pid twitter
+  local pid_twitter=$pid
+  assert_run_pid $pid_twitter
+
+  set_instance_pid facebook
+  local pid_facebook=$pid
+  assert_run_pid $pid_facebook
+
+  assert_raises "./ineo stop -q" 0
+
+
+  ${SED_CMD} -E "/^.*ineo_start_delay=.*$/ s/.*/ineo_start_delay=0/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_delay=.*$/ s/.*/ineo_start_delay=0/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  time=$(date +"%s")
+  assert_raises "./ineo autostart" 0
+  time=$(($(date +"%s")-${time}))
+
+  assert_raises "[ ${time} -lt ${DEFAULT_AUTO_DELAY} ]" 0
+
+  set_instance_pid twitter
+  pid_twitter=$pid
+  assert_run_pid $pid_twitter
+
+  set_instance_pid facebook
+  pid_facebook=$pid
+  assert_run_pid $pid_facebook
+
+  assert_raises "./ineo stop -q" 0
+
+  assert_end AutostartWithDelay
+}
+tests+=('AutostartWithDelay')
+
+
+AutostartWithPriority() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  # testing starting order is not really easy to do, because the autostart
+  # is not running in a separate thread/process and cannot be "watched".
+  # so the "trick" is to use the same port and see which neo4j is able
+  # to start. the first one will win.
+  assert_raises "./ineo create -p 7474 twitter" 0
+  assert_raises "./ineo create -p 7474 facebook" 0
+
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=10/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=100/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  assert_raises "./ineo autostart" 0
+
+  set_instance_pid twitter
+  local pid_twitter=$pid
+  assert_run_pid $pid_twitter
+
+  set_instance_pid facebook
+  pid_facebook=$pid
+  assert_not_run_pid $pid_facebook
+
+  assert_raises "./ineo stop -q" 0
+
+
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=100/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+
+  assert_raises "./ineo autostart" 0
+
+  set_instance_pid facebook
+  pid_facebook=$pid
+  assert_run_pid $pid_facebook
+
+  set_instance_pid twitter
+  pid_twitter=$pid
+  assert_not_run_pid $pid_twitter
+
+  assert_raises "./ineo stop -q" 0
+
+  assert_end AutostartWithPriority
+}
+tests+=('AutostartWithPriority')
+
+
+# ==============================================================================
 # TEST INSTANCES
 # ==============================================================================
 
-InstancesWithIncorrectParameters() {
+ListWithIncorrectParameters() {
   setup "${FUNCNAME[0]}"
 
   params=(
@@ -1140,22 +1356,22 @@ InstancesWithIncorrectParameters() {
 
   local param
   for param in "${params[@]}"; do
-    assert_raises "./ineo instances $param" 1
-    assert        "./ineo instances $param" \
+    assert_raises "./ineo list $param" 1
+    assert        "./ineo list $param" \
 "
   ${PURPLE}Error -> Invalid argument or option ${BOLD}$param
 
-  ${NF}View help about the command ${UNDERLINE}instances${NF} typing:
-    ${CYAN}ineo help instances${NF}
+  ${NF}View help about the command ${UNDERLINE}list${NF} typing:
+    ${CYAN}ineo help list${NF}
 "
   done
 
-  assert_end InstancesWithIncorrectParameters
+  assert_end ListWithIncorrectParameters
 }
-tests+=('InstancesWithIncorrectParameters')
+tests+=('ListWithIncorrectParameters')
 
 
-InstancesCorrectly() {
+ListCorrectly() {
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
       setup "${FUNCNAME[0]} ${version}-${edition}"
@@ -1166,9 +1382,9 @@ InstancesCorrectly() {
       assert_raises "./ineo create -p7474 -s8484 -e $edition -v $version twitter" 0
       assert_raises "./ineo create -p7575 -s8585 -e $edition -v $version facebook" 0
 
-      assert_raises "./ineo instances" 0
+      assert_raises "./ineo list" 0
       if [ ${version%%.*} -lt 3 ]; then
-        assert        "./ineo instances" \
+        assert        "./ineo list" \
 "
   > instance 'facebook'
     VERSION: $version
@@ -1185,7 +1401,7 @@ InstancesCorrectly() {
     HTTPS:   8484
 "
       else
-        assert        "./ineo instances" \
+        assert        "./ineo list" \
 "
   > instance 'facebook'
     VERSION: $version
@@ -1207,9 +1423,68 @@ InstancesCorrectly() {
     done
   done
 
-  assert_end InstancesCorrectly
+  assert_end ListCorrectly
 }
-tests+=('InstancesCorrectly')
+tests+=('ListCorrectly')
+
+
+ListAliases() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+
+  if [ ${version%%.*} -lt 3 ]; then
+    assert        "./ineo ls" \
+"
+  > instance 'twitter'
+    VERSION: ${versions[-1]}
+    EDITION: ${editions[0]}
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   7475
+"
+      else
+        assert        "./ineo ls" \
+"
+  > instance 'twitter'
+    VERSION: ${versions[-1]}
+    EDITION: ${editions[0]}
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   7475
+    BOLT:    7476
+"
+  fi
+
+  if [ ${version%%.*} -lt 3 ]; then
+    assert        "./ineo instances" \
+"
+  > instance 'twitter'
+    VERSION: ${versions[-1]}
+    EDITION: ${editions[0]}
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   7475
+"
+      else
+        assert        "./ineo instances" \
+"
+  > instance 'twitter'
+    VERSION: ${versions[-1]}
+    EDITION: ${editions[0]}
+    PATH:    $INEO_HOME/instances/twitter
+    PORT:    7474
+    HTTPS:   7475
+    BOLT:    7476
+"
+  fi
+
+  assert_end ListAliases
+}
+tests+=('ListAliases')
 
 
 # ==============================================================================
@@ -1319,7 +1594,7 @@ StartAShellWithANonExistentInstance() {
   ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter
 
   ${NF}List installed instances typing:
-    ${CYAN}ineo instances${NF}
+    ${CYAN}ineo list${NF}
 "
 
   assert_end StartAShellWithANonExistentInstance
@@ -1463,7 +1738,7 @@ DestroyANonExistentInstance() {
   ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter
 
   ${NF}List installed instances typing:
-    ${CYAN}ineo instances${NF}
+    ${CYAN}ineo list${NF}
 "
 
   assert_end DestroyANonExistentInstance
@@ -1613,7 +1888,7 @@ SetPortOnANonExistentInstance() {
   ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter${PURPLE} or is not properly installed
 
   ${NF}List installed instances typing:
-    ${CYAN}ineo instances${NF}
+    ${CYAN}ineo list${NF}
 "
 
   assert_end SetPortOnANonExistentInstance
@@ -1778,6 +2053,355 @@ SetPortCorrectly() {
 }
 tests+=('SetPortCorrectly')
 
+# ==============================================================================
+# TEST SET-CONFIG
+# ==============================================================================
+
+SetConfigWithIncorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  local params=(
+    "-x" 'x'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo set-config ${params[i]}" 1
+    assert        "./ineo set-config ${params[i]}" \
+"
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
+
+  ${NF}View help about the command ${UNDERLINE}set-config${NF} typing:
+    ${CYAN}ineo help set-config${NF}
+"
+  done
+
+  params=(
+    "instance"
+    "instance param"
+    "instance param value more"
+    "-d instance"
+    "-d instance param value"
+  )
+
+  for ((i=0; i<${#params[*]}; i+=1)); do
+    assert_raises "./ineo set-config ${params[i]}" 1
+    assert        "./ineo set-config ${params[i]}" \
+"
+  ${PURPLE}Error -> ${BOLD}set-config${PURPLE} requires an instance name, parameter and value
+
+  ${NF}View help about the command ${UNDERLINE}set-config${NF} typing:
+    ${CYAN}ineo help set-config${NF}
+"
+  done
+
+  assert_end SetConfigWithIncorrectParameters
+}
+tests+=('SetConfigWithIncorrectParameters')
+
+SetConfigWithCorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+
+  # add non-existing param
+  assert_raises "grep twitter.one.a $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 1
+  assert_raises "./ineo set-config twitter twitter.one.a 1" 0
+  assert_raises "grep twitter.one.a $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep twitter.one.a $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "twitter.one.a=1"
+
+  # uncomment existing param
+  assert_raises "grep '^#dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^#dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "#dbms.active_database=graph.db"
+  assert_raises "./ineo set-config twitter dbms.active_database graph.db" 0
+  assert_raises "grep '^dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "dbms.active_database=graph.db"
+
+  # comment existing param
+  assert_raises "grep '^dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "dbms.connector.bolt.enabled=true"
+  assert_raises "./ineo set-config -d twitter dbms.connector.bolt.enabled" 0
+  assert_raises "grep '^#dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^#dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "#dbms.connector.bolt.enabled=true"
+
+  assert "./ineo set-config -q twitter dbms.connector.bolt.enabled true" ""
+  assert "./ineo set-config -dq twitter dbms.connector.bolt.enabled" ""
+
+  assert_end SetConfigWithCorrectParameters
+}
+tests+=('SetConfigWithCorrectParameters')
+
+# ==============================================================================
+# TEST GET-CONFIG
+# ==============================================================================
+
+GetConfigWithIncorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  local params=(
+    "-x" 'x'
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=2)); do
+    assert_raises "./ineo get-config ${params[i]}" 1
+    assert        "./ineo get-config ${params[i]}" \
+"
+  ${PURPLE}Error -> Invalid argument or option ${BOLD}${params[i+1]}
+
+  ${NF}View help about the command ${UNDERLINE}get-config${NF} typing:
+    ${CYAN}ineo help get-config${NF}
+"
+  done
+
+  params=(
+    "instance"
+    "-a instance param"
+  )
+
+  for ((i=0; i<${#params[*]}; i+=1)); do
+    assert_raises "./ineo get-config ${params[i]}" 1
+    assert        "./ineo get-config ${params[i]}" \
+"
+  ${PURPLE}Error -> ${BOLD}get-config${PURPLE} requires an instance name and parameter
+
+  ${NF}View help about the command ${UNDERLINE}get-config${NF} typing:
+    ${CYAN}ineo help get-config${NF}
+"
+  done
+
+  assert_end GetConfigWithIncorrectParameters
+}
+tests+=('GetConfigWithIncorrectParameters')
+
+GetConfigWithCorrectParameters() {
+  setup "${FUNCNAME[0]}"
+
+  # Make an installation
+  assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
+
+  assert_raises "./ineo create twitter" 0
+  assert_raises "./ineo create facebook" 0
+  assert_raises "./ineo create apple" 0
+
+  local params=(
+    "twitter"
+    "facebook"
+    "apple"
+  )
+
+  local i
+  for ((i=0; i<${#params[*]}; i+=1)); do
+    # insert param to all instances
+    assert_raises "./ineo set-config ${params[i]} all.one.a 1" 0
+    assert_raises "./ineo set-config ${params[i]} all.one.b 2" 0
+    assert_raises "./ineo set-config ${params[i]} all.two.a 3" 0
+    assert_raises "./ineo set-config ${params[i]} all.two.b 4" 0
+  done
+
+  # insert param to all but one instance
+  assert_raises "./ineo set-config twitter twitter.one.a 1" 0
+  assert_raises "./ineo set-config twitter twitter.one.b 2" 0
+  assert_raises "./ineo set-config apple apple.one.a 1" 0
+  assert_raises "./ineo set-config apple apple.one.b 2" 0
+
+  # try all formats with single instance and single param
+  assert_raises "./ineo get-config twitter twitter.one.a" 0
+  assert        "./ineo get-config twitter twitter.one.a" "twitter.one.a=1"
+
+  assert_raises "./ineo get-config -o list twitter twitter.one.a" 0
+  assert        "./ineo get-config -o list twitter twitter.one.a" \
+"
+  > instance 'twitter'
+    twitter.one.a=1"
+
+  assert_raises "./ineo get-config -o ini twitter twitter.one.a" 0
+  assert        "./ineo get-config -o ini twitter twitter.one.a" "[twitter]\ntwitter.one.a=1"
+
+  assert_raises "./ineo get-config -o line twitter twitter.one.a" 0
+  assert        "./ineo get-config -o line twitter twitter.one.a" "twitter.one.a=1"
+
+  assert_raises "./ineo get-config -o value twitter twitter.one.a" 0
+  assert        "./ineo get-config -o value twitter twitter.one.a" "1"
+
+
+  # try all formats with all instance and single param existing in all instances
+  assert_raises "./ineo get-config -a all.one.a" 0
+  assert        "./ineo get-config -a all.one.a" \
+"
+  > instance 'apple'
+    all.one.a=1
+
+
+  > instance 'facebook'
+    all.one.a=1
+
+
+  > instance 'twitter'
+    all.one.a=1"
+
+  assert_raises "./ineo get-config -a -o list all.one.a" 0
+  assert        "./ineo get-config -a -o list all.one.a" \
+"
+  > instance 'apple'
+    all.one.a=1
+
+
+  > instance 'facebook'
+    all.one.a=1
+
+
+  > instance 'twitter'
+    all.one.a=1"
+
+
+  assert_raises "./ineo get-config -a -o ini all.one.a" 0
+  assert        "./ineo get-config -a -o ini all.one.a" \
+"[apple]
+all.one.a=1
+
+[facebook]
+all.one.a=1
+
+[twitter]
+all.one.a=1"
+
+  assert_raises "./ineo get-config -a -o line all.one.a" 0
+  assert        "./ineo get-config -a -o line all.one.a" \
+"
+  > instance 'apple'
+    all.one.a=1
+
+
+  > instance 'facebook'
+    all.one.a=1
+
+
+  > instance 'twitter'
+    all.one.a=1"
+
+
+  assert_raises "./ineo get-config -a -o value all.one.a" 0
+  assert        "./ineo get-config -a -o value all.one.a" \
+"
+  > instance 'apple'
+    all.one.a=1
+
+
+  > instance 'facebook'
+    all.one.a=1
+
+
+  > instance 'twitter'
+    all.one.a=1"
+
+
+  # try multi formats with all instance and single param existing in one instance
+  assert_raises "./ineo get-config -a -o list twitter.one.a" 0
+  assert        "./ineo get-config -a -o list twitter.one.a" \
+"
+  > instance 'apple'
+    WARNING: \"twitter.one.a\" doesn't exist in the \"apple\" configuration
+
+
+  > instance 'facebook'
+    WARNING: \"twitter.one.a\" doesn't exist in the \"facebook\" configuration
+
+
+  > instance 'twitter'
+    twitter.one.a=1"
+
+  assert_raises "./ineo get-config -a -o ini twitter.one.a" 0
+  assert        "./ineo get-config -a -o ini twitter.one.a" \
+"[apple]
+WARNING: \"twitter.one.a\" doesn't exist in the \"apple\" configuration
+
+[facebook]
+WARNING: \"twitter.one.a\" doesn't exist in the \"facebook\" configuration
+
+[twitter]
+twitter.one.a=1"
+
+
+  # try quiet mode on multi formats with all instance and single param existing in one instance
+  assert_raises "./ineo get-config -a -q -o list twitter.one.a" 0
+  assert        "./ineo get-config -a -q -o list twitter.one.a" \
+"
+  > instance 'apple'
+
+
+  > instance 'facebook'
+
+
+  > instance 'twitter'
+    twitter.one.a=1"
+
+  assert_raises "./ineo get-config -a -q -o ini twitter.one.a" 0
+  assert        "./ineo get-config -a -q -o ini twitter.one.a" \
+"[apple]
+[facebook]
+[twitter]
+twitter.one.a=1"
+
+
+  # try all formats with one instance and asterix param
+  assert_raises "./ineo get-config -o list twitter twitter.one.*" 0
+  assert        "./ineo get-config -o list twitter twitter.one.*" \
+"
+  > instance 'twitter'
+    twitter.one.a=1
+    twitter.one.b=2"
+
+  assert_raises "./ineo get-config -o ini twitter twitter.one.*" 0
+  assert        "./ineo get-config -o ini twitter twitter.one.*" \
+"[twitter]
+twitter.one.a=1
+twitter.one.b=2"
+
+  assert_raises "./ineo get-config -o line twitter twitter.one.*" 0
+  assert        "./ineo get-config -o line twitter twitter.one.*" \
+"twitter.one.a=1
+twitter.one.b=2"
+
+  assert_raises "./ineo get-config -o line twitter all.*.b" 0
+  assert        "./ineo get-config -o line twitter all.*.b" \
+"all.one.b=2
+all.two.b=4"
+
+  assert_raises "./ineo get-config -o value twitter twitter.one.*" 0
+  assert        "./ineo get-config -o value twitter twitter.one.*" \
+"twitter.one.a=1
+twitter.one.b=2"
+
+  # try multi formats with all instance and asterix param
+  assert_raises "./ineo get-config -a -o list twitter.one.*" 0
+  assert        "./ineo get-config -a -o list twitter.one.*" \
+"
+  > instance 'apple'
+
+
+  > instance 'facebook'
+
+
+  > instance 'twitter'
+    twitter.one.a=1
+    twitter.one.b=2"
+
+  assert_raises "./ineo get-config -a -o ini twitter.one.*" 0
+  assert        "./ineo get-config -a -o ini twitter.one.*" \
+"[apple]
+[facebook]
+[twitter]
+twitter.one.a=1
+twitter.one.b=2"
+
+
+  assert_end GetConfigWithCorrectParameters
+}
+tests+=('GetConfigWithCorrectParameters')
 
 # ==============================================================================
 # TEST BACKUP
@@ -2199,7 +2823,7 @@ ClearDataOnANonExistentInstance() {
   ${PURPLE}Error -> There is not an instance with the name ${BOLD}twitter${PURPLE} or is not properly installed
 
   ${NF}List installed instances typing:
-    ${CYAN}ineo instances${NF}
+    ${CYAN}ineo list${NF}
 "
 
   assert_end ClearDataOnANonExistentInstance
@@ -2423,6 +3047,7 @@ if [[ -z "$test_name" ]]; then
   for test in "${tests[@]}"; do
     "$test"
   done
+  echo -e "\nTests executed in ${SECONDS}sec"
 else
   "$test_name"
 fi

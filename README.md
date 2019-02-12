@@ -260,31 +260,34 @@ Just typing `ineo` you can get a brief description of every Ineo command.
 ```
 $ ineo help
 
-USAGE:
-  ineo <command> [options] [<arguments>]
+  USAGE:
+    ineo <command> [options] [<arguments>]
 
-COMMANDS:
+  COMMANDS:
 
-  create      Create a new instance with a specific <name>
-  set-port    Change the port of a specific instance <name>
-  versions    Show the Neo4j versions available for installing
-  instances   Show the information about the installed instances
+    create          Create a new instance with a specific <name>
+    set-port        Change the port of a specific instance <name>
+    versions        Show the Neo4j versions available for installation
+    instances       Show the information about installed instances
 
-  start       Start Neo4j instances
-  stop        Stop Neo4j instances
-  restart     Restart Neo4j instances
-  status      Show instances status
-  shell       Start the shell for a Neo4j instance
-  console     Start a Neo4j instance in mode console
+    start           Start Neo4j instances
+    stop            Stop Neo4j instances
+    restart         Restart Neo4j instances
+    status          Show instances status
+    shell           Start the shell for a Neo4j instance
+    console         Start a Neo4j instance in mode console
 
-  delete-db   Delete all data of a specific instance <name>
-  destroy     Remove a specific instance <name>
+    set-config      Change settings in configuration file
+    get-config      Read settings from configuration file
 
-  install     Install ineo
-  update      Update ineo
-  uninstall   Uninstall ineo
+    delete-db       Delete all data of a specific instance <name>
+    destroy         Remove a specific instance <name>
 
-  help        Show this help or help for specific [command]
+    install         Install ineo
+    update          Update ineo
+    uninstall       Uninstall ineo
+
+    help            Show this help or help for specific [command]
 ```
 
 ### Help for a specific command
