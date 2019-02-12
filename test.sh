@@ -1446,7 +1446,7 @@ ListAliases() {
     assert        "./ineo ls" \
 "
   > instance 'twitter'
-    VERSION: ${versions[-1]}
+    VERSION: ${versions[@]:(-1)}
     EDITION: ${editions[0]}
     PATH:    $INEO_HOME/instances/twitter
     PORT:    7474
@@ -1456,7 +1456,7 @@ ListAliases() {
         assert        "./ineo ls" \
 "
   > instance 'twitter'
-    VERSION: ${versions[-1]}
+    VERSION: ${versions[@]:(-1)}
     EDITION: ${editions[0]}
     PATH:    $INEO_HOME/instances/twitter
     PORT:    7474
@@ -1469,7 +1469,7 @@ ListAliases() {
     assert        "./ineo instances" \
 "
   > instance 'twitter'
-    VERSION: ${versions[-1]}
+    VERSION: ${versions[@]:(-1)}
     EDITION: ${editions[0]}
     PATH:    $INEO_HOME/instances/twitter
     PORT:    7474
@@ -1479,7 +1479,7 @@ ListAliases() {
         assert        "./ineo instances" \
 "
   > instance 'twitter'
-    VERSION: ${versions[-1]}
+    VERSION: ${versions[@]:(-1)}
     EDITION: ${editions[0]}
     PATH:    $INEO_HOME/instances/twitter
     PORT:    7474

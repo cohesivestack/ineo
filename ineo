@@ -192,7 +192,7 @@ function configuration_comment {
   fi
 
   # first check, if value already exists in config
-  ${SED_CMD} "/^#\?\(${param}=.*\)$/s//${comment}\1/" "${path}"
+  ${SED_CMD} -E "/^#?(${param}=.*)$/s//${comment}\1/" "${path}"
 
 }
 
@@ -1403,13 +1403,13 @@ function set-config {
     # take off last argument
     value=${!#}
     # set options without last argument
-    set -- "${@:0:$#}"; shift
+    set -- "${@:1:$#-1}"
   fi
 
   # take off last argument
   param=${!#}
   # set options without last argument
-  set -- "${@:0:$#}"; shift
+  set -- "${@:1:$#-1}"
   
   local instances=( ${@} )
 
