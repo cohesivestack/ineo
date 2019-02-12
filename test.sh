@@ -3,7 +3,7 @@
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
 DEFAULT_EDITION='all'
-LAST_VERSION='3.3.1'
+LAST_VERSION='3.3.3'
 
 # Regular Colors
 BLACK='\033[0;30m'
@@ -87,10 +87,10 @@ if [ ${versions[0]} == 'all' ]; then
   # check current java version and select "all" version appropriately
   java_version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
   if [[ "${java_version%*.*}" < "1.8" ]]; then
-    versions=(1.9.9 2.3.6 3.0.3 3.3.1)
+    versions=(1.9.9 2.3.6 3.0.3 3.3.3)
   else
     # neo4j 1.9.x is not compatible with java >= 1.8
-    versions=(2.3.6 3.0.3 3.3.1)
+    versions=(2.3.6 3.0.3 3.3.3)
   fi
 fi
 
@@ -165,7 +165,7 @@ function assert_run_pid {
   local pid=$1
   # we need to wait some seconds, because on fast computers the pid will exists 
   # even though neo4j terminates due to a configuration error
-  sleep 3 
+  sleep 3
   assert_raises "test $(ps -p $pid -o pid=)" 0
 }
 
@@ -876,10 +876,6 @@ CreateAnInstanceOnAExistingDirectoryAndTryAgainWithFOption() {
 
   ${NF}Maybe the instance already was created or try run the command ${UNDERLINE}install${NF} with the -f option to force the installation
 "
-
-  # Ensure the bad tar version of neo4j was downloaded
-  assert_raises \
-    "test -f $(pwd)/ineo_for_test/neo4j/neo4j-community-$LAST_VERSION-unix.tar.gz" 0
 
   # Ensure the instance directory is empty yet
   assert_raises "test $(ls -A ineo_for_test/instances/twitter)" 1
