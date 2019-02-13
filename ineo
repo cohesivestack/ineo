@@ -1283,7 +1283,7 @@ function get-config {
   # take off last argument
   param=${!#}
   # set options without last argument
-  set -- "${@:0:$#}"; shift
+  set -- "${@:1:$#-1}"
   
   local instances=( ${@} )
 
