@@ -1301,7 +1301,7 @@ AutostartWithPriority() {
   # so the "trick" is to use the same port and see which neo4j is able
   # to start. the first one will win.
   assert_raises "./ineo create -p 7474 twitter" 0
-  assert_raises "./ineo create -p 7474 facebook" 0
+  assert_raises "./ineo create -p 8484 facebook" 0
 
   ${SED_CMD} -E "/^.*ineo_start_auto=.*$/ s/.*/ineo_start_auto=1/g" \
     ${INEO_HOME}/instances/facebook/.ineo
@@ -1313,34 +1313,25 @@ AutostartWithPriority() {
   ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=100/g" \
     ${INEO_HOME}/instances/twitter/.ineo
 
-  assert_raises "./ineo autostart" 0
+  assert_contains "./ineo autostart" ".*start 'twitter'.*start 'facebook'.*"
 
+  sleep 3
   set_instance_pid twitter
-  local pid_twitter=$pid
+  pid_twitter=$pid
   assert_run_pid $pid_twitter
-
-  set_instance_pid facebook
-  pid_facebook=$pid
-  assert_not_run_pid $pid_facebook
-
-  assert_raises "./ineo stop -q" 0
-
-
-  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=100/g" \
-    ${INEO_HOME}/instances/facebook/.ineo
-  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=1/g" \
-    ${INEO_HOME}/instances/twitter/.ineo
-
-  assert_raises "./ineo autostart" 0
 
   set_instance_pid facebook
   pid_facebook=$pid
   assert_run_pid $pid_facebook
 
-  set_instance_pid twitter
-  pid_twitter=$pid
-  assert_not_run_pid $pid_twitter
+  assert_raises "./ineo stop -q" 0
 
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=1/g" \
+    ${INEO_HOME}/instances/twitter/.ineo
+  ${SED_CMD} -E "/^.*ineo_start_priority=.*$/ s/.*/ineo_start_priority=100/g" \
+    ${INEO_HOME}/instances/facebook/.ineo
+
+  assert_contains "./ineo autostart" ".*start 'facebook'.*start 'twitter'.*"
   assert_raises "./ineo stop -q" 0
 
   assert_end AutostartWithPriority

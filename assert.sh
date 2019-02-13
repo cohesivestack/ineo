@@ -118,6 +118,26 @@ assert() {
     _assert_fail "expected ${expected}${_indent}got ${result}${_indent}diff \n${diff}" "$1" "$3"
 }
 
+assert_contains() {
+    # assert_contains <command> <expected regexp stdout> [stdin]
+    (( tests_ran++ )) || :
+    [[ -z "${DISCOVERONLY}" ]] || return
+    expected=$(echo -ne "${2:-}")
+    result="$(eval 2>/dev/null $1 <<< ${3:-})" || true
+    if [[ "${result}" =~ ${expected} ]]; then
+        [[ -z "${DEBUG}" ]] || echo -n .
+        return
+    fi
+    result="$(sed -e :a -e '$!N;s/\n/\\n/;ta' <<< "$result")"
+    [[ -z "${result}" ]] && result="nothing" || result="\"${result}\""
+    [[ -z "$2" ]] && expected="nothing" || expected="\"$2\""
+
+    set +e
+    diff=$(diff -y <(echo -e "${expected}") <(echo -e "${result}"))
+    set -e
+    _assert_fail "expected ${expected}${_indent}got ${result}${_indent}diff \n${diff}" "$1" "$3"
+}
+
 assert_raises() {
     # assert_raises <command> <expected code> [stdin]
     (( tests_ran++ )) || :
