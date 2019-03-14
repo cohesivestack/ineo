@@ -250,7 +250,7 @@ function set_instance_pid {
 
 function assert_run_pid {
   local pid=$1
-  # we need to wait some seconds, because on fast computers the pid will exists 
+  # we need to wait some seconds, because on fast computers the pid will exists
   # even though neo4j terminates due to a configuration error
   sleep 3
   assert_raises "test $(ps -p $pid -o pid=)" 0
@@ -258,7 +258,7 @@ function assert_run_pid {
 
 function assert_not_run_pid {
   local pid=$1
-  # we need to wait some seconds, because on fast computers the pid will exists 
+  # we need to wait some seconds, because on fast computers the pid will exists
   # even though neo4j terminates due to a configuration error
   sleep 3
   assert_raises "test $(ps -p $pid -o pid=)" 1
@@ -2117,6 +2117,13 @@ SetConfigWithCorrectParameters() {
   assert_raises "grep '^dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
   assert        "grep '^dbms.active_database' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "dbms.active_database=graph.db"
 
+  # uncomment existing param with backslash
+  assert_raises "grep '^#dbms.directories.data' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^#dbms.directories.data' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "#dbms.directories.data=data"
+  assert_raises "./ineo set-config twitter dbms.directories.data /path/to/data" 0
+  assert_raises "grep '^dbms.directories.data' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
+  assert        "grep '^dbms.directories.data' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "dbms.directories.data=/path/to/data"
+
   # comment existing param
   assert_raises "grep '^dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" 0
   assert        "grep '^dbms.connector.bolt.enabled' $(pwd)/ineo_for_test/instances/twitter/conf/neo4j.conf" "dbms.connector.bolt.enabled=true"
@@ -2696,7 +2703,7 @@ RestoreCorrectly() {
 
       assert_raises "./ineo stop twitter" 0
       assert_not_run_pid $pid
-  
+
     done
   done
 
@@ -2744,7 +2751,7 @@ RestoreForce() {
 
   assert_raises "./ineo stop twitter" 0
   assert_not_run_pid $pid
-  
+
   rm /tmp/ineo$$.dump
 
 

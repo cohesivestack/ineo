@@ -166,6 +166,11 @@ function configuration_set {
   local value=${3}
   local path=$(get_configuration_path "${instance_name}")
 
+  # check if the value contains backslash
+  if [[ "${value}" == *\/* ]] || [[ "${value}" == *\\* ]]; then
+     value=$(echo "${value}" | sed 's/\//\\\//g')
+  fi
+
   # first check, if value already exists in config
   if [[ -n $(sed -n "/^#\?\(${param}\)=.*$/s//\1/p" "${path}") ]]; then
     ${SED_CMD} "/^#\?\(${param}\)=.*$/s//\1=${value}/" "${path}"
