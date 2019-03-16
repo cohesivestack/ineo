@@ -167,8 +167,8 @@ function configuration_set {
   local path=$(get_configuration_path "${instance_name}")
 
   # first check, if value already exists in config
-  if [[ -n $(sed -n "/^#\?\(${param}\)=.*$/s//\1/p" "${path}") ]]; then
-    ${SED_CMD} "/^#\?\(${param}\)=.*$/s//\1=${value}/" "${path}"
+  if [[ -n $(sed -nE "/^#?(${param})=.*$/s//\1/p" "${path}") ]]; then
+    ${SED_CMD} -E "/^#?(${param})=.*$/s//\1=${value//\//\\/}/" "${path}"
   else
     # append new parameter to end of config
     echo "${param}=${value}" >> "${path}"
@@ -204,14 +204,14 @@ function configuration_comment {
 function get_ineo {
   local instance_name=$1
   local config_name=$2
-  
+
   # prevent include to override global vars
   local neo4j_version
   local neo4j_edition
   local ineo_start_auto
   local ineo_start_order
   local ineo_start_delay
-  
+
   if [[ -f "${INEO_HOME}/instances/${instance_name}/.ineo" ]]; then
     source "${INEO_HOME}/instances/${instance_name}/.ineo"
     echo ${!config_name}
@@ -828,7 +828,7 @@ function autostart {
       printf "\n    ${CYAN}ineo create -f ${instance_name}${NF}\n\n"
       exit 1
     fi
-	
+
     # find out whose instance we are going to start
     local owner=$(${OWNER_CMD} "${INEO_HOME}/instances/${instance_name}/bin/neo4j")
 
@@ -837,7 +837,7 @@ function autostart {
     # because we are in autostart, we want to start the instances as if their owner would have started them,
     # so they are able to stop and administrate them themselves
     sudo -n -u ${owner} -- "${INEO_HOME}/instances/${instance_name}/bin/neo4j" "start"
-    
+
     # don't delay if this instance is the last to be autostarted
     if [[ "${instance_name}" != "${last}" ]]; then
       # delay start of next instance depending on delay setting
@@ -1114,7 +1114,7 @@ function set_https_port {
 function set_bolt_port {
   local instance_name=$1
   local port=$2
-  
+
   if [[ $(get_major_version "${instance_name}") < 3 ]]; then
     ${SED_CMD} -E "/dbms.connector.bolt.address=/ s/^# *//" \
       "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
@@ -1265,7 +1265,7 @@ function get-config {
     esac
   done
   shift $((OPTIND-1))
-  
+
   if [[ ("${all}" == true && "${#}" -ne 1) || ("${all}" == false && "${#}" -lt 2) ]]; then
     printf "\n  ${PURPLE}Error -> ${BOLD}get-config${PURPLE} requires an instance name and parameter\n"
     printf "\n  ${NF}View help about the command ${UNDERLINE}get-config${NF} typing:"
@@ -1284,7 +1284,7 @@ function get-config {
   param=${!#}
   # set options without last argument
   set -- "${@:1:$#-1}"
-  
+
   local instances=( ${@} )
 
   # If is not specified the instance name, then apply on all instances
@@ -1322,7 +1322,7 @@ function get-config {
       exit 1
     fi
 
-    config=$(configuration_get "${instance_name}" "${param}" | sort) 
+    config=$(configuration_get "${instance_name}" "${param}" | sort)
 
     # give a warning, if querying for a specific value, which doesn't exist in the configuration
     if [[ "${wildcard}" == false && "${#config}" -eq 0 && "${quiet}" == false ]]; then
@@ -1357,7 +1357,7 @@ function get-config {
           printf "\n    ${value}"
         done
         printf "\n\n"
-    esac 
+    esac
 
   done
 
@@ -1410,7 +1410,7 @@ function set-config {
   param=${!#}
   # set options without last argument
   set -- "${@:1:$#-1}"
-  
+
   local instances=( ${@} )
 
   local instance_name
