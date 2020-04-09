@@ -1,10 +1,17 @@
 #!/bin/bash
 
+# REQUIREMENTS
+#
+# MACOS:
+# - gtruncate:
+#   # brew install coreutils
+
+
 NEO4J_HOSTNAME='http://dist.neo4j.org'
 DEFAULT_VERSION='all'
 DEFAULT_EDITION='all'
 DEFAULT_AUTO_DELAY=3
-LAST_VERSION='3.4.5'
+LAST_VERSION='3.5.16'
 SED_CMD="sed -i "
 
 # Regular Colors
@@ -174,10 +181,10 @@ if [ ${versions[0]} == 'all' ]; then
   # check current java version and select "all" version appropriately
   java_version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
   if [[ $(compare_version "${java_version%*.*}" "1.8") == -1 ]]; then
-    versions=(1.9.9 2.3.6 3.0.3 3.4.5)
+    versions=(1.9.9 2.3.6 3.0.3 3.4.5 ${LAST_VERSION})
   else
     # neo4j 1.9.x is not compatible with java >= 1.8
-    versions=(2.3.6 3.0.3 3.4.5)
+    versions=(2.3.6 3.0.3 3.4.5 ${LAST_VERSION})
   fi
 fi
 
@@ -2693,6 +2700,12 @@ RestoreCorrectly() {
         assert_raises "test -s /tmp/ineo$$.dump" 0
       fi
 
+      # newer Neo4J versions are not creating empty graph.db without a start of the instance
+      if [[ ! -d "ineo_for_test/instances/twitter/data/databases/graph.db/" ]]; then
+        assert_raises "./ineo start twitter" 0
+        set_instance_pid twitter
+        assert_run_pid $pid
+      fi
       assert_raises "./ineo restore -f /tmp/ineo$$.dump twitter" 0
 
 

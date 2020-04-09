@@ -3,3 +3,4 @@ fake_ineo_host
 fake_neo4j_host
 ineo_for_test
 .DS_Store
+.idea
