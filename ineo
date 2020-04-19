@@ -85,13 +85,19 @@ else
 	readonly NF=""          # No Format
 fi
 
-# Underline
-UNDERLINE='\033[4m'
-ITALIC='\033[3m'
-BOLD='\033[1m'
+# ==============================================================================
+# BASH AUTO COMPLETION
+# ==============================================================================
 
-# No Format
-NF='\033[0m'
+function ineo_autocompletion {
+    if [ "${#COMP_WORDS[@]}" -eq "2" ]; then
+        COMPREPLY=($(compgen -W "create set-port versions instances start stop restart status shell console delete-db
+        destroy install update uninstall help" "${COMP_WORDS[1]}"))
+    else
+        COMPREPLY=$(compgen -W "$(ineo instances|egrep '> instance'|sed "s/> instance '\(.*\)'/ \1/g"|sed "s/\s*//g")"
+        "${COMP_WORDS[-1]}")
+    fi
+}
 
 # ==============================================================================
 # SET INSTANCES FUNCTION
@@ -402,6 +408,71 @@ EOF
     systemctl enable ineo
   fi
 
+  # Check if ineo bash autocomplete can be installed
+  local completion
+  if [[ -d "/etc/bash_completion.d/" ]]; then
+    completion="/etc/bash_completion.d/"
+  elif [[ -d "/usr/local/etc/bash_completion.d" ]]; then
+    completion="/usr/local/etc/bash_completion.d"
+  fi
+
+  if [[ -n "${completion}" && -w "${completion}" ]]; then
+    cat >"${completion}/ineo" <<EOF
+# bash completion for ineo (https://github.com/cohesivestack/ineo/)
+
+_ineo_complete()
+{
+  _ineo_names()
+  {
+    local cmd='ls -1 "\${INEO_HOME}/instances/"'
+    if [[ -d "\${INEO_HOME}/instances/" ]]; then
+      COMPREPLY=( \$( compgen -W "\$( eval \${cmd})" "\${cur}") )
+    else
+      COMPREPLY=()
+    fi
+  }
+
+  COMPREPLY=()
+  # ignore special --foo args
+  if [[ \${COMP_WORDS[COMP_CWORD]} == -* ]]; then
+    return 0
+  fi
+
+  _ineo_cmds="create set-port versions instances start stop restart status shell console delete-db destroy \
+              install update uninstall help"
+
+  if [ "\${COMP_CWORD}" -eq 1 ]; then
+    COMPREPLY=( \$(compgen -W "\${_ineo_cmds}" -- \${COMP_WORDS[COMP_CWORD]}) )
+    return 0
+  fi
+
+  local no_dashargs
+  cur=\${COMP_WORDS[COMP_CWORD]}
+
+  no_dashargs=(\${COMP_WORDS[@]// -*})
+  pos=\$((COMP_CWORD - (\${#COMP_WORDS[@]} - \${#no_dashargs[@]})))
+  if [ -z "\${cur}" ]; then
+    pos=\$((\${pos} + 1))
+  fi
+
+  case \${no_dashargs[1]} in
+    "console" | "delete-db" | "destroy" | "restart" | "set-port" | "shell" | "start" | "status" | "stop")
+      _ineo_names
+      ;;
+    "help")
+      COMPREPLY=( \$(compgen -W "\${_ineo_cmds}" -- "\${cur}") )
+      ;;
+    *)
+      ;;
+  esac
+
+  return 0
+} &&
+complete -o default -F _ineo_complete ineo
+
+# ex: filetype=sh
+EOF
+  fi
 
   printf "\n  ${GREEN}Ineo was successfully installed in ${BOLD}${INEO_HOME}\n"
   printf "\n  ${NF}To start using the ${UNDERLINE}ineo${NF} command reopen your terminal or enter:"
@@ -484,6 +555,14 @@ function uninstall {
     if [[ $(ps -o comm 1 | tail -n 1 ) == "systemd" ]]; then
       rm /lib/systemd/system/ineo.service
     fi
+  fi
+
+  # Check if ineo bash autocomplete has been installed
+  local completion
+  if [[ -O "/etc/bash_completion.d/ineo" ]]; then
+    rm "/etc/bash_completion.d/ineo"
+  elif [[ -O "/usr/local/etc/bash_completion.d/ineo" ]]; then
+    rm "/usr/local/etc/bash_completion.d/ineo"
   fi
 
   # Remove directory
