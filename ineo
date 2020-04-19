@@ -21,6 +21,11 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+#
+# Requirements:
+# - curl
+# - openjdk
+
 
 VERSION=2.0.0
 
@@ -48,17 +53,37 @@ TEMP_DIR="/tmp/$$.ineo"
 INSTANCE_TEMP_DIR="${INEO_HOME}/instances/.tmp"
 
 SED_CMD="sed -i "
-OWNER_CMD="stat -c %U"
+OWNER_CMD="stat -c %u"
 
-# Regular Colors
-BLACK='\033[0;30m'
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-WHITE='\033[0;37m'
+# define color variable to be used in echo, cat, ...
+if [[ -n "${TERM:-}" && ${TERM} != "dumb" ]] ; then
+	readonly BLACK="$(tput setaf 0)"			# Black
+	readonly RED="$(tput setaf 1)"			    # Red
+	readonly GREEN="$(tput setaf 2)"			# Green
+	readonly YELLOW="$(tput setaf 3)"			# Yellow
+	readonly BLUE="$(tput setaf 4)"			    # Blue
+	readonly PURPLE="$(tput setaf 5)"			# Purple
+	readonly CYAN="$(tput setaf 6)"			    # Cyan
+	readonly WHITE="$(tput setaf 7)"			# White
+	readonly UNDERLINE="$(tput smul)"			# Underline
+	readonly ITALIC="$(tput sitm)"              # Italic
+	readonly BOLD="$(tput bold)"			    # Bold
+	readonly NF="$(tput sgr0)$(tput rmul)"      # No Format
+else
+	# NO TERM NO COLOR
+	readonly BLACK=""		# Black
+	readonly RED=""		    # Red
+	readonly GREEN=""		# Green
+	readonly YELLOW=""	    # Yellow
+	readonly BLUE=""		# Blue
+	readonly PURPLE=""	    # Purple
+	readonly CYAN=""		# Cyan
+	readonly WHITE=""		# White
+	readonly UNDERLINE=""	# Underline
+	readonly ITALIC=""      # Italic
+	readonly BOLD=""	    # Bold
+	readonly NF=""          # No Format
+fi
 
 # Underline
 UNDERLINE='\033[4m'
@@ -123,6 +148,20 @@ function get_configuration_path {
     echo "${INEO_HOME}/instances/${instance_name}/conf/neo4j-server.properties"
   else
     echo "${INEO_HOME}/instances/${instance_name}/conf/neo4j.conf"
+  fi
+}
+
+# ==============================================================================
+# GET DATABASE PATH
+# ==============================================================================
+
+function get_database_path {
+  local instance_name=$1
+
+  if [[ $(get_major_version "${instance_name}") -lt 3 ]]; then
+    echo "${INEO_HOME}/instances/${instance_name}/data/graph.db"
+  else
+    echo "${INEO_HOME}/instances/${instance_name}/data/databases/graph.db"
   fi
 }
 
@@ -606,18 +645,18 @@ function create {
 
   local tar_name="neo4j-${edition}-${version}-unix.tar.gz"
 
-  # Donwload and create tar if doesn't exists
+  # Download and create tar if doesn't exists
   if [[ ! -f "${INEO_HOME}/neo4j/${tar_name}" || "${force_download}" == "true" ]]; then
     curl -o "${TEMP_DIR}/${tar_name}" "${NEO4J_HOSTNAME}/${tar_name}"
 
     mv "${TEMP_DIR}/${tar_name}" "${INEO_HOME}/neo4j/${tar_name}"
   fi
 
-  # Create tmp dir to extract
+  # Create tmp dir to extract to
   mkdir -p "${INEO_HOME}/instances/.${instance_name}"
-  # if is not extracted then the tar maybe is not good, so a message suggesting
-  # to use -d option is showed
-  if ! tar --strip 1 -xzf "${INEO_HOME}/neo4j/${tar_name}" \
+  # if not extracted then the tar might have been damaged, so a message suggesting
+  # to use -d option is shown. Option no-same-owner is needed for autostart purposes using sudo.
+  if ! tar --no-same-owner --strip 1 -xzf "${INEO_HOME}/neo4j/${tar_name}" \
     -C "${INEO_HOME}/instances/.${instance_name}" &> /dev/null; then
     printf "\n  ${PURPLE}Error -> The tar file ${BOLD}${tar_name}${PURPLE} can't be extracted\n"
     printf "\n  ${NF}Try run the command ${UNDERLINE}create${NF} with the -d option to download the tar file again\n\n"
@@ -640,10 +679,10 @@ neo4j_edition=${edition}
 #ineo_start_delay=${DEFAULT_AUTO_DELAY}
 EOF
 
-  # Finnaly move the instance for installation
+  # Finally move the instance for installation
   mv "${INEO_HOME}/instances/.${instance_name}" "${INEO_HOME}/instances/${instance_name}"
 
-  # If https or bolt port is not configured, then set them incrementally
+  # If HTTPS or bolt port is not configured, then set them incrementally
   https_port=${https_port:-$((${port} + 1))}
   bolt_port=${bolt_port:-$(((${https_port} > ${port} ? ${https_port} : ${port}) + 1))}
 
@@ -830,13 +869,19 @@ function autostart {
     fi
 
     # find out whose instance we are going to start
-    local owner=$(${OWNER_CMD} "${INEO_HOME}/instances/${instance_name}/bin/neo4j")
+    local ownerId=$(${OWNER_CMD} "${INEO_HOME}/instances/${instance_name}/bin/neo4j")
+    # check if user ID still exists
+    id -u "${ownerId}" >/dev/null 2>&1
+    if [[ "$?" -ne 0 ]]; then
+        printf "\n  failed to start '${instance_name} [unknown owner #${ownerId}]'\n  "
+        continue
+    fi
 
     printf "\n  start '${instance_name}'\n  "
 
     # because we are in autostart, we want to start the instances as if their owner would have started them,
     # so they are able to stop and administrate them themselves
-    sudo -n -u ${owner} -- "${INEO_HOME}/instances/${instance_name}/bin/neo4j" "start"
+    sudo -n -u "#${ownerId}" -- "${INEO_HOME}/instances/${instance_name}/bin/neo4j" "start"
 
     # don't delay if this instance is the last to be autostarted
     if [[ "${instance_name}" != "${last}" ]]; then
@@ -1000,7 +1045,7 @@ function list {
 
   if [[ "${#INSTANCES[@]}" -eq 0 ]]; then
     printf "\n  There are not any created instance yet\n"
-    printf "\n  Create the first one using the command ${UNDERLINE}create$\n"
+    printf "\n  Create the first one using the command ${UNDERLINE}create${NF}\n"
     printf "\n  View help about the command ${UNDERLINE}create${NF} typing:\n"
     printf "      ${CYAN}ineo help create${NF}\n"
   else
@@ -1705,12 +1750,14 @@ function delete-db {
     ${INEO_HOME}/instances/${instance_name}/bin/neo4j stop
   fi
 
-  if [[ ! -d "${INEO_HOME}/instances/${instance_name}/data/graph.db" ]]; then
+  local dbPath=$(get_database_path "${instance_name}")
+
+  if [[ ! -d "${dbPath}" ]]; then
     printf "\n  There is not a database on the instance ${UNDERLINE}${instance_name}${NF}, so nothing was removed\n\n"
     exit 0
   fi
 
-  rm -rf "${INEO_HOME}/instances/${instance_name}/data/graph.db"
+  rm -rf "${dbPath}"
 
   printf "\n  ${GREEN}The data for the instance ${BOLD}${instance_name}${GREEN} was successfully removed${NF}\n\n"
   exit 0
@@ -2209,7 +2256,7 @@ COMMAND=$1
 if [[ "$( uname )" == "Darwin" ]]; then
   # sed command is just incompatible with -i option
 	SED_CMD="sed -i ''"
-	OWNER_CMD="stat -f %Su"
+	OWNER_CMD="stat -f %Du"
 fi
 
 set_instances
