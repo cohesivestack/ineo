@@ -23,7 +23,7 @@ Please check [releases](https://github.com/cohesivestack/ineo/releases) for the 
 1. Execute the line below on your terminal:
 
    ```
-   curl -sSL https://raw.githubusercontent.com/cohesivestack/ineo/v2.0.0/ineo | bash -s install
+   curl -sSL https://raw.githubusercontent.com/cohesivestack/ineo/v2.1.0/ineo | bash -s install
    ```
 
 2. Restart your terminal or execute the line below to set proper environment:
@@ -300,7 +300,7 @@ $ ineo install -d ~/.ineo-custom-path
 If you are installing from curl:
 
 ```
-$ curl -sSL https://raw.githubusercontent.com/cohesivestack/ineo/v2.0.0/ineo | bash -s install -d ~/.ineo-custom-path
+$ curl -sSL https://raw.githubusercontent.com/cohesivestack/ineo/v2.1.0/ineo | bash -s install -d ~/.ineo-custom-path
 ```
 
 ## Help and other commands
