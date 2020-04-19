@@ -138,18 +138,31 @@ assert_contains() {
     _assert_fail "expected ${expected}${_indent}got ${result}${_indent}diff \n${diff}" "$1" "$3"
 }
 
-assert_raises() {
-    # assert_raises <command> <expected code> [stdin]
+assert_try_raises() {
+    # assert_raises <tries> <command> <expected code> [stdin]
+    local tries=$1
     (( tests_ran++ )) || :
     [[ -z "$DISCOVERONLY" ]] || return
-    status=0
-    (eval $1 <<< ${3:-}) > /dev/null 2>&1 || status=$?
-    expected=${2:-0}
-    if [[ "$status" -eq "$expected" ]]; then
-        [[ -z "$DEBUG" ]] || echo -n .
-        return
-    fi
-    _assert_fail "program terminated with code $status instead of $expected" "$1" "$3"
+    while [[ 0 -lt "$tries" ]];
+    do
+        if [[ "${tries}" -gt 1 ]]; then
+            sleep 1
+        fi
+        status=0
+        (eval $2 <<< ${4:-}) > /dev/null 2>&1 || status=$?
+        expected=${3:-0}
+        if [[ "$status" -eq "$expected" ]]; then
+            [[ -z "$DEBUG" ]] || echo -n .
+            return
+        fi
+        (( tries-- ))
+    done
+    _assert_fail "program terminated with code $status instead of $expected" "$2" "$4"
+}
+
+assert_raises() {
+    # assert_raises <command> <expected code> [stdin]
+    assert_try_raises 1 "$1" "$2" "$3"
 }
 
 _assert_fail() {

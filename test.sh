@@ -13,24 +13,37 @@ DEFAULT_EDITION='all'
 DEFAULT_AUTO_DELAY=3
 LAST_VERSION='3.5.16'
 SED_CMD="sed -i "
+TEST_RETRY=15
 
-# Regular Colors
-BLACK='\033[0;30m'
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-WHITE='\033[0;37m'
-
-# Underline
-UNDERLINE='\033[4m'
-ITALIC='\033[3m'
-BOLD='\033[1m'
-
-# No Format
-NF='\033[0m'
+# define color variable to be used in echo, cat, ...
+if [[ -n "${TERM:-}" && ${TERM} != "dumb" ]] ; then
+	readonly BLACK="$(tput setaf 0)"			# Black
+	readonly RED="$(tput setaf 1)"			    # Red
+	readonly GREEN="$(tput setaf 2)"			# Green
+	readonly YELLOW="$(tput setaf 3)"			# Yellow
+	readonly BLUE="$(tput setaf 4)"			    # Blue
+	readonly PURPLE="$(tput setaf 5)"			# Purple
+	readonly CYAN="$(tput setaf 6)"			    # Cyan
+	readonly WHITE="$(tput setaf 7)"			# White
+	readonly UNDERLINE="$(tput smul)"			# Underline
+	readonly ITALIC="$(tput sitm)"              # Italic
+	readonly BOLD="$(tput bold)"			    # Bold
+	readonly NF="$(tput sgr0)$(tput rmul)"      # No Format
+else
+	# NO TERM NO COLOR
+	readonly BLACK=""		# Black
+	readonly RED=""		    # Red
+	readonly GREEN=""		# Green
+	readonly YELLOW=""	    # Yellow
+	readonly BLUE=""		# Blue
+	readonly PURPLE=""	    # Purple
+	readonly CYAN=""		# Cyan
+	readonly WHITE=""		# White
+	readonly UNDERLINE=""	# Underline
+	readonly ITALIC=""      # Italic
+	readonly BOLD=""	    # Bold
+	readonly NF=""          # No Format
+fi
 
 # ==============================================================================
 # HELPER FUNCTIONS
@@ -103,12 +116,59 @@ function compare_version () {
         return
       fi
       if ((10#${ver1[i]} < 10#${ver2[i]})); then
-        printf -1
+        printf -- -1
         return
       fi
     done
   fi
   printf 0
+}
+
+###
+# Extract version of instance
+#
+# @param string     instance
+###
+function instance_version () {
+  local instance=$1
+  local version
+
+  if [[ -f "${INEO_HOME}/instances/${instance}/.ineo" ]]; then
+    version=$(grep neo4j_version "${INEO_HOME}/instances/${instance}/.ineo")
+    printf ${version//[^=]*=/}
+  fi
+}
+
+###
+# Return database folder depending on instance
+#
+# The database folder is the one containing the graph.db folder
+#
+# @param string     instance
+###
+function database_folder_instance () {
+  local instance=$1
+  local version=$(instance_version "${instance}")
+
+  printf $(database_folder_version "${version}")
+}
+
+###
+# Return database folder depending on version
+#
+# The database folder is the one containing the graph.db folder
+#
+# @param string     version
+###
+function database_folder_version () {
+  local version=$1
+  local major_version_number=${version%%.*}
+
+  if [ $major_version_number -lt 3 ]; then
+    printf "/data"
+  else
+    printf "/data/databases"
+  fi
 }
 
 # ==============================================================================
@@ -181,10 +241,10 @@ if [ ${versions[0]} == 'all' ]; then
   # check current java version and select "all" version appropriately
   java_version=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2)
   if [[ $(compare_version "${java_version%*.*}" "1.8") == -1 ]]; then
-    versions=(1.9.9 2.3.6 3.0.3 3.4.5 ${LAST_VERSION})
+    versions=(1.9.9 2.3.6 3.0.3 3.3.9 ${LAST_VERSION})
   else
     # neo4j 1.9.x is not compatible with java >= 1.8
-    versions=(2.3.6 3.0.3 3.4.5 ${LAST_VERSION})
+    versions=(2.3.6 3.0.3 3.3.9 ${LAST_VERSION})
   fi
 fi
 
@@ -238,37 +298,49 @@ export NEO4J_HOSTNAME="file://$(pwd)/fake_neo4j_host"
 export INEO_HOSTNAME="file://$(pwd)/fake_ineo_host"
 export INEO_HOME="$(pwd)/ineo_for_test"
 
+# Check for orphaned neo4j process still running from a previous test execution
+if [[ $(ps -ef -u $(whoami) | grep "[j]ava" | grep "${INEO_HOME}" | wc -l) -ne 0 ]]; then
+    echo -E "${YELLOW}WARNING${NF}: Some old NEO4J process are still running, this might effect test run"
+    sleep 1
+fi
+
 # ==============================================================================
 # PID FUNCTIONS
 # ==============================================================================
 
 function set_instance_pid {
   local instance_name=$1
-  if [ -f $INEO_HOME/instances/$instance_name/data/neo4j-service.pid ]; then
+  if [ -f ${INEO_HOME}/instances/${instance_name}/data/neo4j-service.pid ]; then
     assert_raises \
-      "test -f $INEO_HOME/instances/$instance_name/data/neo4j-service.pid" 0
-    pid=$(head -n 1 $INEO_HOME/instances/$instance_name/data/neo4j-service.pid)
+      "test -f ${INEO_HOME}/instances/${instance_name}/data/neo4j-service.pid" 0
+    pid=$(head -n 1 ${INEO_HOME}/instances/${instance_name}/data/neo4j-service.pid)
   else
     assert_raises \
-      "test -f $INEO_HOME/instances/$instance_name/run/neo4j.pid" 0
-    pid=$(head -n 1 $INEO_HOME/instances/$instance_name/run/neo4j.pid)
+      "test -f ${INEO_HOME}/instances/${instance_name}/run/neo4j.pid" 0
+    pid=$(head -n 1 ${INEO_HOME}/instances/${instance_name}/run/neo4j.pid)
   fi
 }
 
 function assert_run_pid {
   local pid=$1
+  local instance_name=$2
   # we need to wait some seconds, because on fast computers the pid will exists
   # even though neo4j terminates due to a configuration error
-  sleep 3
-  assert_raises "test $(ps -p $pid -o pid=)" 0
+  assert_try_raises "${TEST_RETRY}" "test $(ps -p $pid -o pid=)" 0
+
+  # NEO4J >= 3.x are not generating DB on create
+  if [[ -d "${INEO_HOME}/instances/${instance_name}/data/databases/" ]]; then
+    # Check if DB is up and ready, this might need a couple of seconds otherwise NEO4J is not ready
+    assert_try_raises "${TEST_RETRY}" "test -f ${INEO_HOME}/instances/${instance_name}/data/databases/graph.db/neostore" 0
+    sleep 2
+  fi
 }
 
 function assert_not_run_pid {
   local pid=$1
   # we need to wait some seconds, because on fast computers the pid will exists
   # even though neo4j terminates due to a configuration error
-  sleep 3
-  assert_raises "test $(ps -p $pid -o pid=)" 1
+  assert_try_raises "${TEST_RETRY}" "test $(ps -p $pid -o pid=)" 1
 }
 
 # ==============================================================================
@@ -280,7 +352,10 @@ function setup {
     echo -e "\nStarting test $1"
   fi
 
+  # if execution is too fast, lib folder is still locked
+  sleep 1
   rm -fr ineo_for_test
+
   assert_raises "test -d ineo_for_test" 1
 }
 
@@ -1039,7 +1114,7 @@ ExecuteActionsCorrectly() {
       # start
       assert_raises "./ineo start twitter" 0
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       # status running
       assert "./ineo status twitter" \
@@ -1048,7 +1123,7 @@ ExecuteActionsCorrectly() {
       # restart
       assert_raises "./ineo restart twitter" 0
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       # status running
       assert "./ineo status twitter" \
@@ -1092,11 +1167,11 @@ ExecuteActionsOnVariousInstancesCorrectly() {
 
       set_instance_pid twitter
       local pid_twitter=$pid
-      assert_run_pid $pid_twitter
+      assert_run_pid "${pid_twitter}" twitter
 
       set_instance_pid facebook
       local pid_facebook=$pid
-      assert_run_pid $pid_facebook
+      assert_run_pid "${pid_facebook}" facebook
 
       # status running
       assert "./ineo status" \
@@ -1108,11 +1183,11 @@ $(get_running_message $version twitter $pid_twitter)"
 
       set_instance_pid twitter
       pid_twitter=$pid
-      assert_run_pid $pid_twitter
+      assert_run_pid "${pid_twitter}" twitter
 
       set_instance_pid facebook
       pid_facebook=$pid
-      assert_run_pid $pid_facebook
+      assert_run_pid "${pid_facebook}" facebook
 
       # status running
       assert "./ineo status" \
@@ -1136,11 +1211,11 @@ $(get_not_running_message $version twitter $pid_twitter)"
 
       set_instance_pid twitter
       pid_twitter=$pid
-      assert_run_pid $pid_twitter
+      assert_run_pid "${pid_twitter}" twitter
 
       set_instance_pid facebook
       pid_facebook=$pid
-      assert_run_pid $pid_facebook
+      assert_run_pid "${pid_facebook}" facebook
 
       # status running
       assert "./ineo status" \
@@ -1152,11 +1227,11 @@ $(get_running_message $version twitter $pid_twitter)"
 
       set_instance_pid twitter
       pid_twitter=$pid
-      assert_run_pid $pid_twitter
+      assert_run_pid "${pid_twitter}" twitter
 
       set_instance_pid facebook
       pid_facebook=$pid
-      assert_run_pid $pid_facebook
+      assert_run_pid "${pid_facebook}" facebook
 
       # status running
       assert "./ineo status" \
@@ -1223,7 +1298,7 @@ AutostartSomeInstances() {
 
   set_instance_pid twitter
   local pid_twitter=$pid
-  assert_run_pid $pid_twitter
+  assert_run_pid "${pid_twitter}" twitter
 
   # should not have started at all, so no PID file yet
   assert_raises \
@@ -1231,9 +1306,11 @@ AutostartSomeInstances() {
 
   set_instance_pid apple
   local pid_apple=$pid
-  assert_run_pid $pid_apple
+  assert_run_pid "${pid_apple}" apple
 
   assert_raises "./ineo stop -q" 0
+  assert_not_run_pid $pid_apple
+  assert_not_run_pid $pid_twitter
 
   assert_end AutostartSomeInstances
 }
@@ -1262,11 +1339,11 @@ AutostartWithDelay() {
 
   set_instance_pid twitter
   local pid_twitter=$pid
-  assert_run_pid $pid_twitter
+  assert_run_pid "${pid_twitter}" twitter
 
   set_instance_pid facebook
   local pid_facebook=$pid
-  assert_run_pid $pid_facebook
+  assert_run_pid "${pid_facebook}" facebook
 
   assert_raises "./ineo stop -q" 0
 
@@ -1284,13 +1361,15 @@ AutostartWithDelay() {
 
   set_instance_pid twitter
   pid_twitter=$pid
-  assert_run_pid $pid_twitter
+  assert_run_pid "${pid_twitter}" twitter
 
   set_instance_pid facebook
   pid_facebook=$pid
-  assert_run_pid $pid_facebook
+  assert_run_pid "${pid_facebook}" facebook
 
   assert_raises "./ineo stop -q" 0
+  assert_not_run_pid $pid_facebook
+  assert_not_run_pid $pid_twitter
 
   assert_end AutostartWithDelay
 }
@@ -1322,14 +1401,13 @@ AutostartWithPriority() {
 
   assert_contains "./ineo autostart" ".*start 'twitter'.*start 'facebook'.*"
 
-  sleep 3
   set_instance_pid twitter
   pid_twitter=$pid
-  assert_run_pid $pid_twitter
+  assert_run_pid "${pid_twitter}" twitter
 
   set_instance_pid facebook
   pid_facebook=$pid
-  assert_run_pid $pid_facebook
+  assert_run_pid "${pid_facebook}" facebook
 
   assert_raises "./ineo stop -q" 0
 
@@ -1762,10 +1840,11 @@ DestroyCorrectly() {
       # Test confirming without an instance running
 
       assert_raises "./ineo create -e $edition -v $version twitter" 0
-
+      sleep 1
       assert_raises "echo -ne 'y\n' | ./ineo destroy twitter" 0
 
       assert_raises "./ineo create -e $edition -v $version twitter" 0
+      sleep 1
       assert "echo -ne 'y\n' | ./ineo destroy twitter" \
 "
   ${YELLOW}Warning -> Destroying the instance ${RED}twitter${YELLOW} will remove all data for this instance${NF}
@@ -1781,8 +1860,9 @@ DestroyCorrectly() {
       assert_raises "./ineo start twitter" 0
 
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
+      sleep 1
       assert_raises "echo -ne 'y\ny\n' | ./ineo destroy twitter" 0
 
       assert_not_run_pid $pid
@@ -1791,9 +1871,11 @@ DestroyCorrectly() {
 
       assert_raises "./ineo create -e $edition -v $version twitter" 0
 
+      sleep 1
       assert_raises "./ineo destroy -f twitter" 0
 
       assert_raises "./ineo create -e $edition -v $version twitter" 0
+      sleep 1
       assert "./ineo destroy -f twitter" \
 "
   ${GREEN}The instance ${BOLD}twitter${GREEN} was successfully destroyed.${NF}
@@ -1805,8 +1887,9 @@ DestroyCorrectly() {
       assert_raises "./ineo start twitter" 0
 
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
+      sleep 1
       assert_raises "./ineo destroy -f twitter" 0
 
       assert_not_run_pid $pid
@@ -2522,7 +2605,7 @@ BackupCorrectly() {
       # start to create graph.db
       assert_raises "./ineo start twitter" 0
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       assert_raises "./ineo backup -p /tmp/ineo$$.dump twitter" 0
       assert_raises "test -s /tmp/ineo$$.dump" 0
@@ -2530,7 +2613,7 @@ BackupCorrectly() {
 
       # check if instance was restarted after backup
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       assert_raises "./ineo stop twitter" 0
       assert_not_run_pid $pid
@@ -2553,7 +2636,7 @@ BackupPath() {
   # start to create graph.db
   assert_raises "./ineo start twitter" 0
   set_instance_pid twitter
-  assert_run_pid $pid
+  assert_run_pid "${pid}" twitter
 
   # stop
   assert_raises "./ineo stop twitter" 0
@@ -2694,17 +2777,17 @@ RestoreCorrectly() {
         # start to create graph.db
         assert_raises "./ineo start twitter" 0
         set_instance_pid twitter
-        assert_run_pid $pid
+        assert_run_pid "${pid}" twitter
 
         assert_raises "./ineo backup -p /tmp/ineo$$.dump twitter" 0
         assert_raises "test -s /tmp/ineo$$.dump" 0
       fi
 
-      # newer Neo4J versions are not creating empty graph.db without a start of the instance
+      # Neo4J versions >= 3.x are not creating empty graph.db without a start of the instance
       if [[ ! -d "ineo_for_test/instances/twitter/data/databases/graph.db/" ]]; then
         assert_raises "./ineo start twitter" 0
         set_instance_pid twitter
-        assert_run_pid $pid
+        assert_run_pid "${pid}" twitter
       fi
       assert_raises "./ineo restore -f /tmp/ineo$$.dump twitter" 0
 
@@ -2712,7 +2795,7 @@ RestoreCorrectly() {
       # check if instance can be started after restore
       assert_raises "./ineo start twitter" 0
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       assert_raises "./ineo stop twitter" 0
       assert_not_run_pid $pid
@@ -2738,7 +2821,7 @@ RestoreForce() {
   # start to create graph.db
   assert_raises "./ineo start twitter" 0
   set_instance_pid twitter
-  assert_run_pid $pid
+  assert_run_pid "${pid}" twitter
 
   assert_raises "./ineo backup -p /tmp/ineo$$.dump twitter" 0
   assert_raises "test -s /tmp/ineo$$.dump" 0
@@ -2760,7 +2843,7 @@ RestoreForce() {
   # check if instance can be started after restore
   assert_raises "./ineo start twitter" 0
   set_instance_pid twitter
-  assert_run_pid $pid
+  assert_run_pid "${pid}" twitter
 
   assert_raises "./ineo stop twitter" 0
   assert_not_run_pid $pid
@@ -2850,9 +2933,11 @@ tests+=('ClearDataOnANonExistentInstance')
 
 ClearDataCorrectly() {
   local version
+  local dbFolder
   for version in "${versions[@]}"; do
     for edition in "${editions[@]}"; do
       setup "${FUNCNAME[0]} ${version}-${edition}"
+      dbFolder=$(database_folder_version "${version}")
 
       # Make an installation
       assert_raises "./ineo install -d $(pwd)/ineo_for_test" 0
@@ -2861,14 +2946,14 @@ ClearDataCorrectly() {
 
       assert_raises "./ineo create -e $edition -v $version twitter" 0
       # Create a fake directory
-      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "mkdir ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
 
       assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
 
       # Create a fake directory
-      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "mkdir ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
 
       assert "echo -ne 'y\n' | ./ineo delete-db twitter" \
 "
@@ -2878,62 +2963,62 @@ ClearDataCorrectly() {
   ${GREEN}The data for the instance ${BOLD}twitter${GREEN} was successfully removed${NF}
 "
 
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 1
 
       # Test confirming with an instance running
 
       # Create a fake directory
-      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "mkdir ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
 
       assert_raises "./ineo start twitter" 0
 
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
 
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 1
 
       assert_not_run_pid $pid
 
       # Test forcing without an instance running
 
       # Create a fake directory
-      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "mkdir ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
 
       assert_raises "./ineo delete-db -f twitter" 0
 
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 1
 
       # Create a fake directory
-      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "mkdir ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
 
       assert "./ineo delete-db -f twitter" \
 "
   ${GREEN}The data for the instance ${BOLD}twitter${GREEN} was successfully removed${NF}
 "
 
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 1
 
       # Test forcing with an instance running
 
       # Create a fake directory
-      assert_raises "mkdir ineo_for_test/instances/twitter/data/graph.db" 0
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 0
+      assert_raises "mkdir ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 0
 
       assert_raises "./ineo start twitter" 0
 
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       assert_raises "./ineo delete-db -f twitter" 0
 
       assert_not_run_pid $pid
 
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter${dbFolder}/graph.db" 1
     done
   done
   assert_end ClearDataCorrectly
@@ -2953,7 +3038,7 @@ ClearDataCorrectlyWithoutADatabaseFile() {
       # Test confirming without an instance running
 
       assert_raises "./ineo create -e $edition -v $version twitter" 0
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/databases/graph.db" 1
 
       assert_raises "echo -ne 'y\n' | ./ineo delete-db twitter" 0
 
@@ -2970,11 +3055,11 @@ ClearDataCorrectlyWithoutADatabaseFile() {
       assert_raises "./ineo start twitter" 0
 
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       assert_raises "echo -ne 'y\ny\n' | ./ineo delete-db twitter" 0
 
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/databases/graph.db" 1
 
       assert_not_run_pid $pid
 
@@ -2992,13 +3077,13 @@ ClearDataCorrectlyWithoutADatabaseFile() {
       assert_raises "./ineo start twitter" 0
 
       set_instance_pid twitter
-      assert_run_pid $pid
+      assert_run_pid "${pid}" twitter
 
       assert_raises "./ineo delete-db -f twitter" 0
 
       assert_not_run_pid $pid
 
-      assert_raises "test -d ineo_for_test/instances/twitter/data/graph.db" 1
+      assert_raises "test -d ineo_for_test/instances/twitter/data/databases/graph.db" 1
     done
   done
   assert_end ClearDataCorrectlyWithoutADatabaseFile
