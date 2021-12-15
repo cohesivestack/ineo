@@ -1637,13 +1637,13 @@ function backup {
     ${INEO_HOME}/instances/${instance_name}/bin/neo4j stop
   fi
   
-  backup_database="graph.db"
+  database_to_work_on="graph.db"
   # If Neo4j >=4.0.0 dump the default neo4j database
   if [[ $(get_major_version "${instance_name}") -ge "4" ]]; then
-    backup_database="neo4j"
+    database_to_work_on="neo4j"
   fi
 
-  "${INEO_HOME}/instances/${instance_name}/bin/neo4j-admin" dump --database="${backup_database}" --to="${path}"
+  "${INEO_HOME}/instances/${instance_name}/bin/neo4j-admin" dump --database="${database_to_work_on}" --to="${path}"
 
   local success=$?
   if [[ "${success}" -ne 0 ]]; then
@@ -1742,8 +1742,14 @@ function restore {
     # Stop the instance
     ${INEO_HOME}/instances/${instance_name}/bin/neo4j stop
   fi
+  
+  database_to_work_on="graph.db"
+  # If Neo4j >=4.0.0 dump the default neo4j database
+  if [[ $(get_major_version "${instance_name}") -ge "4" ]]; then
+    database_to_work_on="neo4j"
+  fi
 
-  "${INEO_HOME}/instances/${instance_name}/bin/neo4j-admin" load --from="${file}" --database="graph.db" --force
+  "${INEO_HOME}/instances/${instance_name}/bin/neo4j-admin" load --from="${file}" --database="${database_to_work_on}" --force
 
   local success=$?
   if [[ "${success}" -ne 0 ]]; then
