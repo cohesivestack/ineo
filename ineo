@@ -1636,8 +1636,14 @@ function backup {
     # Stop the instance
     ${INEO_HOME}/instances/${instance_name}/bin/neo4j stop
   fi
+  
+  backup_database="graph.db"
+  # If Neo4j >=4.0.0 dump the default neo4j database
+  if [[ $(get_major_version "${instance_name}") -ge "4" ]]; then
+    backup_database="neo4j"
+  fi
 
-  "${INEO_HOME}/instances/${instance_name}/bin/neo4j-admin" dump --database="graph.db" --to="${path}"
+  "${INEO_HOME}/instances/${instance_name}/bin/neo4j-admin" dump --database="${backup_database}" --to="${path}"
 
   local success=$?
   if [[ "${success}" -ne 0 ]]; then
