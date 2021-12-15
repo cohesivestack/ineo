@@ -1,5 +1,5 @@
 #!/bin/bash
-# ineo 2.0.0 - Neo4j Instances Manager
+# ineo 2.1.0 - Neo4j Instances Manager
 # Copyright (C) 2015-2020 Carlos Forero
 #
 # http://github.com/carlosforero/ineo
@@ -27,11 +27,11 @@
 # - openjdk
 
 
-VERSION=2.0.0
+VERSION=2.1.0
 
 DEFAULT_HOME="${HOME}/.ineo"
 
-DEFAULT_VERSION='3.5.16'
+DEFAULT_VERSION='3.5.9'
 
 DEFAULT_PORT='7474'
 
