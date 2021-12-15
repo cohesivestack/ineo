@@ -45,7 +45,7 @@ NEO4J_HOSTNAME="${NEO4J_HOSTNAME:-http://dist.neo4j.org}"
 
 # INEO_HOSTNAME can be assigned from the environment, so it can be changed
 # with testing to use a mock
-INEO_HOSTNAME="${INEO_HOSTNAME:-https://raw.githubusercontent.com/cohesivestack/ineo/master}"
+INEO_HOSTNAME="${INEO_HOSTNAME:-http://ineo.cohesivestack.com}"
 
 LOCK_DIR='/tmp/ineo.neo4j.instances.lock'
 
