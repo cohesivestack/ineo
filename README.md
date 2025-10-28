@@ -1,8 +1,10 @@
 # ineo
 
-[![Join the chat at https://gitter.im/cohesivestack/ineo](https://badges.gitter.im/cohesivestack/ineo.svg)](https://gitter.im/cohesivestack/ineo?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-[![License](https://img.shields.io/github/license/cohesivestack/ineo.svg?style=flat)](https://img.shields.io/github/license/cohesivestack/ineo.svg?style=flat)
-[![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/cohesivestack/ineo.svg?style=flat)]((https://img.shields.io/github/languages/code-size/cohesivestack/ineo.svg?style=flat))
+## Status: Archived
+
+This repository is archived after a community check-in: interest and active maintenance were minimal, and most of Ineo's use cases are now handled by standard Docker-based workflows. For context, see the discussion in [Issue #62](https://github.com/cohesivestack/ineo/issues/62).
+
+## Description
 
 A simple but useful Neo4j instance manager.
 
